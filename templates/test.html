@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Data Collector &amp; Briefing Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- 상단 헤더 & 검색 구역 -->
+        <header class="app-header">
+            <div class="brand">
+                <h1>Stock Data Collector</h1>
+                <p class="subtitle">네이버 금융 정예 지표 &amp; Serper 최신 뉴스 수집기</p>
+            </div>
+            <form id="search-form" class="search-box">
+                <input
+                    type="text"
+                    id="stock-code-input"
+                    placeholder="6자리 종목코드 입력 (예: 000660)"
+                    maxlength="6"
+                    autocomplete="off"
+                >
+                <button type="submit" id="fetch-btn">데이터 수집</button>
+            </form>
+            <div class="quick-examples">
+                <span>빠른 입력:</span>
+                <button type="button" class="chip-btn" data-code="000660">SK하이닉스 (000660)</button>
+                <button type="button" class="chip-btn" data-code="005930">삼성전자 (005930)</button>
+                <button type="button" class="chip-btn" data-code="035420">NAVER (035420)</button>
+            </div>
+        </header>
+
+        <!-- 상태 메시지 (로딩 / 전역 오류 / 부분 경고) -->
+        <div id="loading-box" class="status-box loading hidden">
+            데이터를 수집하고 있습니다. 잠시만 기다려 주세요...
+        </div>
+        <div id="error-box" class="status-box error hidden"></div>
+        <div id="warning-box" class="status-box warning hidden"></div>
+
+        <!-- 결과 메인 영역 -->
+        <main id="result-area" class="result-area hidden">
+            <!-- 1. 스냅샷 & 투자정보 카드 구역 -->
+            <section class="card">
+                <div class="stock-title-row">
+                    <div>
+                        <h2 id="stock-name">-</h2>
+                        <span id="stock-code-badge" class="code-badge">000000</span>
+                    </div>
+                    <div class="price-display">
+                        <span id="current-price" class="price-main">-</span>
+                        <span id="change-rate" class="change-rate">-</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-grid" id="snapshot-grid">
+                    <!-- JS로 투자정보 카드 렌더링 -->
+                </div>
+            </section>
+
+            <!-- 2. 기업실적분석 비교 표 구역 -->
+            <section class="card">
+                <div class="section-header">
+                    <h3>기업실적분석 (연간 추이)</h3>
+                    <span class="legend-badge consensus-badge">E: 증권사 추정치 (Consensus)</span>
+                </div>
+                <div class="table-wrapper">
+                    <table class="finance-table">
+                        <thead id="finance-thead"></thead>
+                        <tbody id="finance-tbody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 3. 최신 관련 뉴스 리스트 구역 -->
+            <section class="card">
+                <div class="section-header">
+                    <h3>최신 관련 뉴스 (Serper API)</h3>
+                    <span id="news-count-badge" class="count-badge">0건</span>
+                </div>
+                <ul id="news-list" class="news-list">
+                    <!-- JS로 뉴스 목록 렌더링 -->
+                </ul>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='test.js') }}"></script>
+</body>
+</html>
