@@ -37,6 +37,7 @@ def health():
     logger.info("[REQUEST] GET /health")
     serper_key = os.getenv('SERPER_API_KEY', '').strip()
     gemini_key = os.getenv('GEMINI_API_KEY', '').strip()
+    dart_key = os.getenv('DART_API_KEY', '').strip()
     dify_analysis_key = os.getenv('DIFY_ANALYSIS_API_KEY', '').strip()
     dify_tech_key = os.getenv('DIFY_TECH_API_KEY', '').strip()
     
@@ -46,6 +47,7 @@ def health():
         "keys_configured": {
             "serper": bool(serper_key),
             "gemini": bool(gemini_key),
+            "dart": bool(dart_key),
             "dify_analysis": bool(dify_analysis_key),
             "dify_tech": bool(dify_tech_key),
         }
@@ -99,8 +101,8 @@ EXPERT_ANALYSIS_GUIDE = """당신은 사용자 개인(1인 전용)의 투자 의
 (PER vs 추정PER, PBR·BPS, 연간/최근 4분기 매출·영업이익·ROE 추이 — ETF인 경우 보수/NAV/수익률 중심으로 설명)
 ### 3. 최근 5일 큰손(외국인·기관) 수급 & 재무 안전성
 (외국인·기관 최근 5일 순매수/순매도 흐름, 부채비율·유보율, 동종 업종 경쟁사 비교)
-### 4. 증권사 리포트 · 최신 뉴스 핵심 & 대응 체크포인트
-(최신 리포트/뉴스 요약 및 향후 지켜볼 구체적 기준 2가지)"""
+### 4. 증권사 리포트 · DART 공식 공시 · 최신 뉴스 & 체크포인트
+(DART 공식 공시(dart.disclosures), 증권사 리포트, 뉴스 요약 및 향후 지켜볼 구체적 기준 2가지)"""
 
 
 def _build_quant_scorecard(stock_data: dict) -> dict:

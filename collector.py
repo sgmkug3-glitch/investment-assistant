@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+from dart_client import fetch_dart_info
+
 logger = logging.getLogger(__name__)
 
 # 네이버 서버 접근 시 매너 명찰(헤더)
@@ -730,6 +732,26 @@ def collect_stock_data(code: str) -> Dict[str, Any]:
     except RuntimeError as exc:
         errors.append({"section": "news", "message": str(exc)})
 
+    # 5. 금융감독원 Open DART 공식 공시 & 기업개황 (국내 일반 주식)
+    dart_info: Optional[Dict[str, Any]] = None
+    if stock_type != "etf":
+        try:
+            dart_info = fetch_dart_info(code)
+        except RuntimeError as exc:
+            errors.append({"section": "dart", "message": str(exc)})
+        except Exception as exc:
+            logger.warning(f"[DART] Open DART 조회 예외 (code={code}): {exc}")
+
+    sources: Dict[str, str] = {
+        "market": "네이버 증권 시세·투자정보·수급·컨센서스 (stock.naver.com)",
+        "financials": "네이버 증권 기업실적분석 연간/분기 (stock.naver.com)",
+        "news": "Serper Google News (google.serper.dev)",
+        "naver_url": f"https://stock.naver.com/domestic/stock/{code}/price",
+        "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    if dart_info:
+        sources["dart"] = "금융감독원 전자공시시스템 Open DART (opendart.fss.or.kr)"
+
     return {
         "code": code,
         "name": stock_name,
@@ -742,13 +764,8 @@ def collect_stock_data(code: str) -> Dict[str, Any]:
         "researches": extra["researches"],
         "financials": financials,
         "quarterly_financials": quarterly_financials,
+        "dart": dart_info,
         "news": news,
-        "sources": {
-            "market": "네이버 증권 시세·투자정보·수급·컨센서스 (stock.naver.com)",
-            "financials": "네이버 증권 기업실적분석 연간/분기 (stock.naver.com)",
-            "news": "Serper Google News (google.serper.dev)",
-            "naver_url": f"https://stock.naver.com/domestic/stock/{code}/price",
-            "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        },
+        "sources": sources,
         "errors": errors,
     }

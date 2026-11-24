@@ -269,7 +269,8 @@ document.addEventListener("DOMContentLoaded", () => {
         sourceBar.innerHTML = "";
         const src = data.sources || {};
         const srcSpan = document.createElement("span");
-        srcSpan.textContent = `데이터 출처: ${src.market || "네이버 증권"} · ${src.news || "Serper Google News"} | 수집 시각: ${src.collected_at || "-"}`;
+        const dartSrcText = src.dart ? ` · ${src.dart}` : "";
+        srcSpan.textContent = `데이터 출처: ${src.market || "네이버 증권"}${dartSrcText} · ${src.news || "Serper Google News"} | 수집 시각: ${src.collected_at || "-"}`;
         sourceBar.appendChild(srcSpan);
         if (src.naver_url) {
             const naverLink = document.createElement("a");
@@ -492,6 +493,49 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         } else {
             resWrap.classList.add("hidden");
+        }
+
+        // Open DART 기업개황 & 공식 공시
+        const dartWrap = document.getElementById("tab1-dart-wrap");
+        const dartProfileEl = document.getElementById("tab1-dart-profile");
+        const dartListEl = document.getElementById("tab1-dart-list");
+        const dart = data.dart;
+        dartProfileEl.innerHTML = "";
+        dartListEl.innerHTML = "";
+
+        if (dart && (dart.profile || (dart.disclosures && dart.disclosures.length > 0))) {
+            dartWrap.classList.remove("hidden");
+            const prof = dart.profile || {};
+            const profSpan = document.createElement("span");
+            profSpan.textContent = `대표이사: ${prof.ceo_name || "-"} · 설립일: ${prof.established || "-"} · 결산월: ${prof.fiscal_month || "-"}`;
+            dartProfileEl.appendChild(profSpan);
+            if (prof.homepage) {
+                const hpLink = document.createElement("a");
+                hpLink.href = prof.homepage;
+                hpLink.target = "_blank";
+                hpLink.rel = "noopener noreferrer";
+                hpLink.textContent = "공식 홈페이지 ↗";
+                dartProfileEl.appendChild(hpLink);
+            }
+
+            (dart.disclosures || []).forEach((d) => {
+                const li = document.createElement("li");
+                li.className = "news-item";
+                const link = document.createElement("a");
+                link.className = "news-title";
+                link.href = d.url || "#";
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = d.title || "공시 제목 없음";
+                const meta = document.createElement("div");
+                meta.className = "news-meta";
+                meta.textContent = `접수일: ${d.date || "-"} · 제출인: ${d.filer || "-"}`;
+                li.appendChild(link);
+                li.appendChild(meta);
+                dartListEl.appendChild(li);
+            });
+        } else {
+            dartWrap.classList.add("hidden");
         }
 
         // 뉴스 렌더링
