@@ -914,3 +914,48 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+   탭 2 초보자 차트 가이드 & 배분 예시 바
+   ========================================================= */
+.evidence-bar {
+    background: var(--primary-soft);
+    border: 1px solid var(--primary-border);
+    color: var(--primary-dark);
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.chart-guide {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.84rem;
+    color: var(--text-main);
+    line-height: 1.55;
+}
+
+.chart-guide strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--primary-dark);
+}
+
+.chart-guide p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.chart-guide ul {
+    margin: 4px 0 0 18px;
+    color: var(--text-muted);
+}
+
+.chart-guide li {
+    margin-bottom: 3px;
+}

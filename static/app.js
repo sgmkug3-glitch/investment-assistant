@@ -732,14 +732,15 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("tab2-source-bar").textContent =
             `데이터 출처: ${src2.provider || "FinanceDataReader"} | 분석 기간: ${src2.period || "-"} | 계산 시각: ${src2.collected_at || "-"}`;
         document.getElementById("tab2-rationale").textContent = data.rationale;
+        document.getElementById("tab2-allocation-example").textContent = data.allocation_example || "";
 
         const compareGrid = document.getElementById("tab2-compare-grid");
         compareGrid.innerHTML = "";
 
         const portfolios = [
-            { title: "★ 최대 샤프 (추천)", info: data.max_sharpe, highlight: true },
-            { title: "최소 변동성 (방어형)", info: data.min_volatility, highlight: false },
-            { title: "동일 비중 (단순 분산)", info: data.equal_weight, highlight: false },
+            { title: "★ 최고 가성비 조합 (추천)", info: data.max_sharpe, highlight: true },
+            { title: "🛡️ 마음 편한 안전 조합", info: data.min_volatility, highlight: false },
+            { title: "⚖️ 똑같이 나누기 (1/N)", info: data.equal_weight, highlight: false },
         ];
 
         portfolios.forEach((p) => {
@@ -751,10 +752,10 @@ document.addEventListener("DOMContentLoaded", () => {
             card.appendChild(h4);
 
             const stats = [
-                ["기대 수익률(연)", `${p.info.expected_return_pct}%`],
-                ["변동성(연)", `${p.info.volatility_pct}%`],
-                ["샤프 지수", `${p.info.sharpe_ratio}`],
-                ["최대 낙폭(MDD)", `${p.info.mdd_pct}%`],
+                ["1년 기대수익률", `${p.info.expected_return_pct}%`],
+                ["출렁임 (변동성)", `${p.info.volatility_pct}%`],
+                ["가성비 점수 (샤프)", `${p.info.sharpe_ratio}`],
+                ["최악의 낙폭 (MDD)", `${p.info.mdd_pct}%`],
             ];
             stats.forEach(([label, val]) => {
                 const row = document.createElement("div");
@@ -826,19 +827,19 @@ document.addEventListener("DOMContentLoaded", () => {
             data: {
                 datasets: [
                     {
-                        label: "몬테카를로 포트폴리오",
+                        label: "무작위 조합 (3,000회)",
                         data: simPoints,
                         backgroundColor: "rgba(148, 163, 184, 0.45)",
                         pointRadius: 3,
                     },
                     {
-                        label: "★ 최대 샤프 (추천)",
+                        label: "★ 추천 (최고 가성비)",
                         data: [{ x: data.max_sharpe.volatility_pct, y: data.max_sharpe.expected_return_pct }],
                         backgroundColor: "#dc2626",
                         pointRadius: 8,
                     },
                     {
-                        label: "최소 변동성",
+                        label: "안전 제일 (최소 변동성)",
                         data: [{ x: data.min_volatility.volatility_pct, y: data.min_volatility.expected_return_pct }],
                         backgroundColor: "#2563eb",
                         pointRadius: 7,
@@ -849,8 +850,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: { title: { display: true, text: "연환산 변동성 (%)" } },
-                    y: { title: { display: true, text: "연환산 기대수익률 (%)" } },
+                    x: { title: { display: true, text: "출렁임 / 위험도 (왼쪽일수록 안전, %)" } },
+                    y: { title: { display: true, text: "1년 기대수익률 (위쪽일수록 수익 큼, %)" } },
                 },
             },
         });

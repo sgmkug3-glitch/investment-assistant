@@ -154,14 +154,22 @@ def calculate_rebalancing(raw_codes: List[str], num_simulations: int = 3000) -> 
         for i in sample_indices
     ]
 
-    # Python 규칙 기반 선정 근거 생성
+    # Python 규칙 기반 초보자 맞춤형 선정 근거 & 1,000만 원 배분 예시 생성
     best_code = max(asset_stats, key=lambda x: x["recommended_weight_pct"])["code"]
+    ret_diff = round(max_sharpe_port["expected_return_pct"] - equal_port["expected_return_pct"], 2)
+    mdd_diff = round(max_sharpe_port["mdd_pct"] - equal_port["mdd_pct"], 2)
+
+    allocation_parts = [
+        f"{c}: 약 {round(w * 10):,}만 원({w}%)"
+        for c, w in max_sharpe_port["weights"].items()
+    ]
+    allocation_example = "1,000만 원을 나눈다면 → " + " · ".join(allocation_parts)
+
     rationale = (
-        f"최근 {len(prices_df)}거래일 기준 {num_simulations:,}회 몬테카를로 시뮬레이션 결과, "
-        f"동일 비중(기대수익 {equal_port['expected_return_pct']}%, 변동성 {equal_port['volatility_pct']}%, MDD {equal_port['mdd_pct']}%) 대비 "
-        f"최대 샤프 포트폴리오는 위험 대비 수익 효율(샤프지수 {max_sharpe_port['sharpe_ratio']})이 가장 높습니다. "
-        f"이 조합은 변동성 {max_sharpe_port['volatility_pct']}%, 기대수익 {max_sharpe_port['expected_return_pct']}%, MDD {max_sharpe_port['mdd_pct']}%를 기록하며 "
-        f"가장 높은 비중({max_sharpe_port['weights'][best_code]}%)이 {best_code}에 배분되었습니다."
+        f"지난 1년({len(prices_df)}거래일) 데이터를 {num_simulations:,}번 무작위로 섞어 본 결과, "
+        f"똑같이 나눠 담았을 때(1/N)보다 가성비(위험 대비 수익)가 가장 뛰어난 조합을 찾았습니다. "
+        f"똑같이 나눴을 때와 비교하면 연 기대수익률은 {ret_diff:+}%p, 최악의 하락폭(MDD)은 {mdd_diff:+}%p 차이를 보이며 "
+        f"{best_code}의 비중({max_sharpe_port['weights'][best_code]}%)을 가장 높게 가져가는 것이 가장 효율적이었습니다."
     )
 
     logger.info(
@@ -179,6 +187,7 @@ def calculate_rebalancing(raw_codes: List[str], num_simulations: int = 3000) -> 
         "asset_stats": asset_stats,
         "frontier_points": frontier_points,
         "rationale": rationale,
+        "allocation_example": allocation_example,
         "source": {
             "provider": "FinanceDataReader (KRX/네이버 일별 종가)",
             "period": f"{prices_df.index[0].strftime('%Y-%m-%d')} ~ {prices_df.index[-1].strftime('%Y-%m-%d')}",
