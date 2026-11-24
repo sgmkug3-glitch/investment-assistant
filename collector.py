@@ -325,10 +325,17 @@ def fetch_integration_info(code: str) -> Dict[str, Any]:
         for r in res_raw[:5]:
             if not isinstance(r, dict) or not r.get("tit"):
                 continue
+            nid = r.get("id")
+            report_url = (
+                f"https://finance.naver.com/research/company_read.naver?nid={nid}"
+                if nid
+                else f"https://stock.naver.com/domestic/stock/{code}/research"
+            )
             researches.append({
                 "broker": str(r.get("bnm", "")).strip(),
                 "title": str(r.get("tit", "")).strip(),
                 "date": str(r.get("wdt", "")).strip(),
+                "url": report_url,
             })
 
     result["_extra"] = {

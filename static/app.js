@@ -481,13 +481,16 @@ document.addEventListener("DOMContentLoaded", () => {
             researches.forEach((r) => {
                 const li = document.createElement("li");
                 li.className = "news-item";
-                const title = document.createElement("div");
-                title.className = "news-title";
-                title.textContent = `[${r.broker}] ${r.title}`;
+                const link = document.createElement("a");
+                link.className = "news-title";
+                link.href = r.url || "#";
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = `[${r.broker}] ${r.title}`;
                 const meta = document.createElement("div");
                 meta.className = "news-meta";
                 meta.textContent = `발행일: ${r.date}`;
-                li.appendChild(title);
+                li.appendChild(link);
                 li.appendChild(meta);
                 resList.appendChild(li);
             });
