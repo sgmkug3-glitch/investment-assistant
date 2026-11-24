@@ -68,13 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
         hideStatusBoxes();
 
         if (!code) {
-            const msg = "종목코드를 입력해 주세요.";
-            console.error(`[ERROR]   수집 중 오류 발생 (${msg})`);
-            showError(msg);
-            return;
-        }
-        if (!/^\d{6}$/.test(code)) {
-            const msg = "종목코드는 6자리 숫자여야 합니다. (예: 000660)";
+            const msg = "종목명 또는 종목코드를 입력해 주세요.";
             console.error(`[ERROR]   수집 중 오류 발생 (${msg})`);
             showError(msg);
             return;

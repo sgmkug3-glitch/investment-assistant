@@ -49,6 +49,69 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${Number(num).toLocaleString("ko-KR")}${suffix}`;
     }
 
+    function formatPrice(num, currency = "KRW") {
+        if (num === null || num === undefined || Number.isNaN(num)) return "-";
+        if (currency === "USD") {
+            return `$${Number(num).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+        return `${Number(num).toLocaleString("ko-KR")}원`;
+    }
+
+    function attachAutocomplete(inputEl, listEl, onSelect) {
+        let timer = null;
+
+        inputEl.addEventListener("input", () => {
+            const q = inputEl.value.trim();
+            clearTimeout(timer);
+            if (!q) {
+                listEl.classList.add("hidden");
+                listEl.innerHTML = "";
+                return;
+            }
+            timer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                    const data = await res.json();
+                    const items = data.items || [];
+                    listEl.innerHTML = "";
+                    if (items.length === 0) {
+                        listEl.classList.add("hidden");
+                        return;
+                    }
+                    items.forEach((item) => {
+                        const li = document.createElement("li");
+                        li.className = "autocomplete-item";
+
+                        const nameSpan = document.createElement("span");
+                        nameSpan.className = "ac-name";
+                        nameSpan.textContent = item.name;
+
+                        const metaSpan = document.createElement("span");
+                        metaSpan.className = "ac-meta";
+                        metaSpan.textContent = `${item.code} · ${item.exchange || item.nation}`;
+
+                        li.appendChild(nameSpan);
+                        li.appendChild(metaSpan);
+                        li.addEventListener("mousedown", (e) => {
+                            e.preventDefault();
+                            inputEl.value = item.code;
+                            listEl.classList.add("hidden");
+                            onSelect(item.code);
+                        });
+                        listEl.appendChild(li);
+                    });
+                    listEl.classList.remove("hidden");
+                } catch {
+                    listEl.classList.add("hidden");
+                }
+            }, 220);
+        });
+
+        inputEl.addEventListener("blur", () => {
+            setTimeout(() => listEl.classList.add("hidden"), 150);
+        });
+    }
+
     function formatKoreanAmount(num) {
         if (num === null || num === undefined || Number.isNaN(num)) return "-";
         const sign = num < 0 ? "-" : "";
@@ -107,16 +170,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    const tab1Autocomplete = document.getElementById("tab1-autocomplete");
+    attachAutocomplete(tab1CodeInput, tab1Autocomplete, (selectedCode) => {
+        analyzeStock(selectedCode);
+    });
+
     tab1SearchForm.addEventListener("submit", (e) => {
         e.preventDefault();
+        tab1Autocomplete.classList.add("hidden");
         analyzeStock(tab1CodeInput.value.trim());
     });
 
     tab1DetailsToggle.addEventListener("click", () => {
         const isHidden = tab1DetailsBox.classList.toggle("hidden");
         tab1DetailsToggle.textContent = isHidden
-            ? "실적 표 & 최신 뉴스 펼쳐보기 ▾"
-            : "실적 표 & 최신 뉴스 접기 ▴";
+            ? "상세 실적 · 수급 · 리포트 · 뉴스 펼쳐보기 ▾"
+            : "상세 실적 · 수급 · 리포트 · 뉴스 접기 ▴";
     });
 
     tab1ResetBtn.addEventListener("click", () => {
@@ -132,8 +201,8 @@ document.addEventListener("DOMContentLoaded", () => {
         hideGlobalError();
         tab1Warning.classList.add("hidden");
 
-        if (!/^\d{6}$/.test(code)) {
-            const msg = "종목코드는 6자리 숫자여야 합니다. (예: 000660)";
+        if (!code) {
+            const msg = "종목명 또는 종목코드를 입력해 주세요. (예: 애플, 삼성전자, 000660)";
             console.error(`[ERROR]     요청 중 오류 발생 (${msg})`);
             showGlobalError(msg);
             return;
@@ -154,6 +223,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json();
 
             if (data.stock_data) {
+                tab1CurrentCode = data.stock_data.code || code;
+                tab1CodeInput.value = tab1CurrentCode;
                 renderTab1Evidence(data.stock_data);
                 console.log(`[COLLECT]   종목 근거 데이터 수집 완료 (${data.stock_data.name})`);
                 tab1ResultArea.classList.remove("hidden");
@@ -189,6 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
             tab1Warning.classList.remove("hidden");
         }
 
+        const currency = data.currency || "KRW";
         const snapshot = data.snapshot || {};
         document.getElementById("tab1-stock-name").textContent = data.name || "-";
         document.getElementById("tab1-code-badge").textContent = data.code || "000000";
@@ -207,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
             naverLink.textContent = "네이버 증권 원본 ↗";
             sourceBar.appendChild(naverLink);
         }
-        document.getElementById("tab1-current-price").textContent = formatNumber(snapshot.current_price, "원");
+        document.getElementById("tab1-current-price").textContent = formatPrice(snapshot.current_price, currency);
 
         const rateEl = document.getElementById("tab1-change-rate");
         const rate = snapshot.change_rate;
@@ -226,17 +298,38 @@ document.addEventListener("DOMContentLoaded", () => {
             rateEl.classList.add("is-flat");
         }
 
-        const metrics = [
-            { label: "시가총액", value: formatKoreanAmount(snapshot.market_cap) },
-            { label: "52주 최고", value: formatNumber(snapshot.high_52w, "원") },
-            { label: "52주 최저", value: formatNumber(snapshot.low_52w, "원") },
-            { label: "외인소진율", value: formatNumber(snapshot.foreign_rate, "%") },
-            { label: "PER (실적)", value: formatNumber(snapshot.per, "배") },
-            { label: "추정 PER", value: formatNumber(snapshot.cns_per, "배") },
-            { label: "PBR", value: formatNumber(snapshot.pbr, "배") },
-            { label: "BPS (주당순자산)", value: formatNumber(snapshot.bps, "원") },
-            { label: "배당수익률", value: formatNumber(snapshot.dividend_yield, "%") },
-        ];
+        const cons = data.consensus || {};
+        const etf = snapshot.etf_info;
+        let metrics = [];
+
+        if (data.stock_type === "etf" && etf) {
+            metrics = [
+                { label: "순자산/시총", value: formatKoreanAmount(snapshot.market_cap), hint: "ETF 전체 규모" },
+                { label: "NAV (순자산가치)", value: formatNumber(etf.nav, "원"), hint: "1주당 실제 자산가치" },
+                { label: "총보수", value: formatNumber(etf.total_fee_pct, "%"), hint: "연간 운용 수수료" },
+                { label: "괴리율", value: formatNumber(etf.deviation_rate_pct, "%"), hint: "시장가와 NAV 차이" },
+                { label: "1년 수익률", value: formatNumber(etf.return_1y_pct, "%"), hint: "최근 12개월 성과" },
+                { label: "분배율(배당)", value: formatNumber(snapshot.dividend_yield, "%"), hint: "연간 분배금 비율" },
+                { label: "52주 최고", value: formatNumber(snapshot.high_52w, "원"), hint: "최근 1년 최고가" },
+                { label: "52주 최저", value: formatNumber(snapshot.low_52w, "원"), hint: "최근 1년 최저가" },
+                { label: "운용사", value: etf.issuer || "-", hint: "ETF 발행 운용사" },
+            ];
+        } else {
+            const targetStr = cons.target_price
+                ? `${formatPrice(cons.target_price, currency)}${cons.upside_pct !== undefined ? ` (${cons.upside_pct > 0 ? "+" : ""}${cons.upside_pct}%)` : ""}`
+                : "-";
+            metrics = [
+                { label: "시가총액 (원화환산)", value: formatKoreanAmount(snapshot.market_cap), hint: "회사 전체 몸값" },
+                { label: "증권사 목표주가", value: targetStr, hint: "애널리스트 평균 예상가" },
+                { label: "투자의견 (5점 만점)", value: cons.opinion_score ? `${cons.opinion_score}점` : "-", hint: "4점 이상: 매수 우위" },
+                { label: "52주 최고 / 최저", value: `${formatPrice(snapshot.high_52w, currency)} / ${formatPrice(snapshot.low_52w, currency)}`, hint: "최근 1년 주가 범위" },
+                { label: "외인소진율", value: formatNumber(snapshot.foreign_rate, "%"), hint: "외국인 보유 비중" },
+                { label: "PER (실적) / 추정PER", value: `${formatNumber(snapshot.per, "배")} / ${formatNumber(snapshot.cns_per, "배")}`, hint: "낮을수록 이익 대비 저평가" },
+                { label: "PBR", value: formatNumber(snapshot.pbr, "배"), hint: "1배 미만이면 자산가치 이하" },
+                { label: "BPS (주당순자산)", value: formatPrice(snapshot.bps, currency), hint: "청산 시 1주당 자산" },
+                { label: "배당수익률", value: formatNumber(snapshot.dividend_yield, "%"), hint: "예금 금리와 비교 척도" },
+            ];
+        }
 
         const grid = document.getElementById("tab1-snapshot-grid");
         grid.innerHTML = "";
@@ -251,23 +344,35 @@ document.addEventListener("DOMContentLoaded", () => {
             val.textContent = m.value;
             card.appendChild(lbl);
             card.appendChild(val);
+            if (m.hint) {
+                const hintEl = document.createElement("div");
+                hintEl.className = "metric-hint";
+                hintEl.textContent = m.hint;
+                card.appendChild(hintEl);
+            }
             grid.appendChild(card);
         });
 
-        // 실적 비교 표 렌더링
-        const thead = document.getElementById("tab1-finance-thead");
-        const tbody = document.getElementById("tab1-finance-tbody");
-        thead.innerHTML = "";
-        tbody.innerHTML = "";
-        const financials = data.financials || [];
+        // 공통 실적 표 렌더링 헬퍼
+        function fillFinanceTable(theadId, tbodyId, wrapId, rows) {
+            const wrap = document.getElementById(wrapId);
+            const thead = document.getElementById(theadId);
+            const tbody = document.getElementById(tbodyId);
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
 
-        if (financials.length > 0) {
+            if (!rows || rows.length === 0) {
+                wrap.classList.add("hidden");
+                return;
+            }
+            wrap.classList.remove("hidden");
+
             const headRow = document.createElement("tr");
             const firstTh = document.createElement("th");
             firstTh.textContent = "항목";
             headRow.appendChild(firstTh);
 
-            financials.forEach((item) => {
+            rows.forEach((item) => {
                 const th = document.createElement("th");
                 if (item.is_consensus) th.classList.add("consensus-col");
                 th.textContent = item.period || "-";
@@ -294,7 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const nameTd = document.createElement("td");
                 nameTd.textContent = spec.label;
                 tr.appendChild(nameTd);
-                financials.forEach((item) => {
+                rows.forEach((item) => {
                     const td = document.createElement("td");
                     if (item.is_consensus) td.classList.add("consensus-col");
                     td.textContent = spec.formatter(item[spec.key]);
@@ -302,6 +407,91 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
                 tbody.appendChild(tr);
             });
+        }
+
+        fillFinanceTable("tab1-finance-thead", "tab1-finance-tbody", "tab1-annual-wrap", data.financials || []);
+        fillFinanceTable("tab1-quarter-thead", "tab1-quarter-tbody", "tab1-quarter-wrap", data.quarterly_financials || []);
+
+        // 최근 5거래일 수급 동향 표
+        const trendWrap = document.getElementById("tab1-trend-wrap");
+        const trendTbody = document.getElementById("tab1-trend-tbody");
+        const trend = data.investor_trend || [];
+        trendTbody.innerHTML = "";
+        if (trend.length > 0) {
+            trendWrap.classList.remove("hidden");
+            trend.forEach((d) => {
+                const tr = document.createElement("tr");
+                const dateTd = document.createElement("td");
+                dateTd.textContent = d.date;
+                const priceTd = document.createElement("td");
+                priceTd.textContent = formatNumber(d.close_price, "원");
+                tr.appendChild(dateTd);
+                tr.appendChild(priceTd);
+
+                [d.foreigner_net, d.organ_net, d.individual_net].forEach((val) => {
+                    const td = document.createElement("td");
+                    if (val !== null && val !== undefined) {
+                        td.textContent = `${val > 0 ? "+" : ""}${Number(val).toLocaleString("ko-KR")}`;
+                        if (val > 0) td.classList.add("num-pos");
+                        else if (val < 0) td.classList.add("num-neg");
+                    } else {
+                        td.textContent = "-";
+                    }
+                    tr.appendChild(td);
+                });
+                trendTbody.appendChild(tr);
+            });
+        } else {
+            trendWrap.classList.add("hidden");
+        }
+
+        // 동종 업종 비교
+        const peersWrap = document.getElementById("tab1-peers-wrap");
+        const peersGrid = document.getElementById("tab1-peers-grid");
+        const peers = data.peers || [];
+        peersGrid.innerHTML = "";
+        if (peers.length > 0) {
+            peersWrap.classList.remove("hidden");
+            peers.forEach((p) => {
+                const card = document.createElement("div");
+                card.className = "metric-item";
+                const lbl = document.createElement("div");
+                lbl.className = "metric-label";
+                lbl.textContent = `${p.name} (${p.code})`;
+                const val = document.createElement("div");
+                val.className = "metric-value";
+                const rText = p.change_rate !== null ? ` (${p.change_rate > 0 ? "+" : ""}${p.change_rate}%)` : "";
+                val.textContent = `${formatPrice(p.current_price, currency)}${rText}`;
+                card.appendChild(lbl);
+                card.appendChild(val);
+                peersGrid.appendChild(card);
+            });
+        } else {
+            peersWrap.classList.add("hidden");
+        }
+
+        // 증권사 최신 리포트
+        const resWrap = document.getElementById("tab1-research-wrap");
+        const resList = document.getElementById("tab1-research-list");
+        const researches = data.researches || [];
+        resList.innerHTML = "";
+        if (researches.length > 0) {
+            resWrap.classList.remove("hidden");
+            researches.forEach((r) => {
+                const li = document.createElement("li");
+                li.className = "news-item";
+                const title = document.createElement("div");
+                title.className = "news-title";
+                title.textContent = `[${r.broker}] ${r.title}`;
+                const meta = document.createElement("div");
+                meta.className = "news-meta";
+                meta.textContent = `발행일: ${r.date}`;
+                li.appendChild(title);
+                li.appendChild(meta);
+                resList.appendChild(li);
+            });
+        } else {
+            resWrap.classList.add("hidden");
         }
 
         // 뉴스 렌더링
@@ -615,8 +805,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    const tab3Autocomplete = document.getElementById("tab3-autocomplete");
+    attachAutocomplete(tab3CodeInput, tab3Autocomplete, () => {
+        loadTechnicalChart();
+    });
+
     tab3Form.addEventListener("submit", (e) => {
         e.preventDefault();
+        tab3Autocomplete.classList.add("hidden");
         loadTechnicalChart();
     });
 
@@ -679,13 +875,14 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("tab3-source-bar").textContent =
             `데이터 출처: ${src3.provider || "FinanceDataReader"} | 조회 기간: ${src3.period || "-"} | 계산 시각: ${src3.collected_at || "-"}`;
 
+        const currency3 = /^[A-Za-z]/.test(data.code || "") ? "USD" : "KRW";
         const metrics = [
-            { label: "종가", value: formatNumber(latest.close, "원") },
-            { label: "MA5 / MA20", value: `${formatNumber(latest.ma5)} / ${formatNumber(latest.ma20)}` },
-            { label: "MA60", value: formatNumber(latest.ma60, "원") },
+            { label: "종가", value: formatPrice(latest.close, currency3) },
+            { label: "MA5 / MA20", value: `${formatPrice(latest.ma5, currency3)} / ${formatPrice(latest.ma20, currency3)}` },
+            { label: "MA60", value: formatPrice(latest.ma60, currency3) },
             { label: "RSI (14)", value: formatNumber(latest.rsi14) },
             { label: "MACD / Signal", value: `${formatNumber(latest.macd)} / ${formatNumber(latest.macd_signal)}` },
-            { label: "볼린저 상/하단", value: `${formatNumber(latest.bb_upper)} / ${formatNumber(latest.bb_lower)}` },
+            { label: "볼린저 상/하단", value: `${formatPrice(latest.bb_upper, currency3)} / ${formatPrice(latest.bb_lower, currency3)}` },
         ];
 
         const grid = document.getElementById("tab3-latest-grid");

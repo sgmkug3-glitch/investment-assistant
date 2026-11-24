@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -21,14 +22,78 @@ NAVER_HEADERS = {
 REQUEST_TIMEOUT = 5
 
 
+def is_us_ticker(code: str) -> bool:
+    """미국 주식/ETF 티커(영문 1~5자 또는 AAPL.O 형식)인지 판별한다."""
+    return bool(re.fullmatch(r"[A-Za-z]{1,5}(?:\.[A-Za-z]{1,2})?", code.strip()))
+
+
 def validate_stock_code(code: Any) -> Optional[str]:
-    """종목코드가 6자리 숫자인지 검증하고 오류 메시지를 반환한다."""
-    if not code or not isinstance(code, str):
-        return "종목코드가 입력되지 않았습니다."
-    stripped = code.strip()
-    if not re.fullmatch(r"\d{6}", stripped):
-        return "종목코드는 6자리 숫자여야 합니다. (예: 000660)"
+    """입력값이 비어있지 않은지 검증한다. (종목명, 6자리 코드, 미국 티커 모두 허용)"""
+    if not code or not isinstance(code, str) or not code.strip():
+        return "종목명 또는 종목코드를 입력해 주세요."
     return None
+
+
+def search_stocks(query: str, limit: int = 6) -> List[Dict[str, str]]:
+    """네이버 자동완성 API를 통해 종목명/코드/티커 검색 결과 목록(국내·미국)을 반환한다."""
+    q = str(query or "").strip()
+    if not q:
+        return []
+
+    url = f"https://ac.stock.naver.com/ac?q={urllib.parse.quote(q)}&target=stock"
+    try:
+        res = requests.get(url, headers=NAVER_HEADERS, timeout=REQUEST_TIMEOUT)
+        if not res.ok:
+            return []
+        data = res.json()
+    except Exception:
+        return []
+
+    items = data.get("items") or []
+    results: List[Dict[str, str]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        nation = str(item.get("nationCode", "")).upper()
+        if nation not in ("KOR", "USA"):
+            continue
+        code = str(item.get("code", "")).strip()
+        name = str(item.get("name", "")).strip()
+        if not code or not name:
+            continue
+        results.append({
+            "code": code,
+            "reuters_code": str(item.get("reutersCode") or code).strip(),
+            "name": name,
+            "nation": nation,
+            "exchange": str(item.get("typeName") or item.get("typeCode") or "").strip(),
+        })
+        if len(results) >= limit:
+            break
+    return results
+
+
+def resolve_stock_code(raw_input: str) -> str:
+    """사용자가 입력한 종목명('애플', '삼성전자') 또는 코드('000660', 'AAPL')를 표준 종목코드로 변환한다."""
+    text = str(raw_input or "").strip()
+    if not text:
+        raise RuntimeError("종목명 또는 종목코드를 입력해 주세요.")
+
+    if re.fullmatch(r"\d{6}", text):
+        return text
+    if is_us_ticker(text):
+        return text.upper()
+
+    matches = search_stocks(text, limit=5)
+    if not matches:
+        raise RuntimeError(f"'{text}'에 해당하는 국내/미국 종목을 찾을 수 없습니다.")
+
+    # 정확히 일치하는 이름이 있으면 우선 선택
+    lowered = text.lower()
+    for m in matches:
+        if m["name"].lower() == lowered:
+            return m["code"]
+    return matches[0]["code"]
 
 
 def clean_number(value: Any, as_float: bool = False) -> Optional[float | int]:
@@ -154,6 +219,7 @@ def fetch_basic_info(code: str) -> Dict[str, Any]:
     return {
         "code": code,
         "name": str(stock_name).strip(),
+        "stock_type": str(data.get("stockEndType", "stock")).lower(),
         "current_price": current_price,
         "change_rate": change_rate,
     }
@@ -175,8 +241,17 @@ def fetch_integration_info(code: str) -> Dict[str, Any]:
         if isinstance(item, dict) and item.get("code")
     }
 
+    etf_raw = data.get("etfKeyIndicator") or {}
+    market_cap = parse_korean_amount(info_map.get("marketValue"))
+    if market_cap is None and isinstance(etf_raw, dict):
+        market_cap = parse_korean_amount(etf_raw.get("marketValue"))
+
+    dividend_yield = clean_number(info_map.get("dividendYieldRatio"), as_float=True)
+    if dividend_yield is None and isinstance(etf_raw, dict):
+        dividend_yield = clean_number(etf_raw.get("dividendYieldTtm"), as_float=True)
+
     result = {
-        "market_cap": parse_korean_amount(info_map.get("marketValue")),
+        "market_cap": market_cap,
         "high_52w": clean_number(info_map.get("highPriceOf52Weeks"), as_float=False),
         "low_52w": clean_number(info_map.get("lowPriceOf52Weeks"), as_float=False),
         "foreign_rate": clean_number(info_map.get("foreignRate"), as_float=True),
@@ -184,7 +259,81 @@ def fetch_integration_info(code: str) -> Dict[str, Any]:
         "cns_per": clean_number(info_map.get("cnsPer"), as_float=True),
         "pbr": clean_number(info_map.get("pbr"), as_float=True),
         "bps": clean_number(info_map.get("bps"), as_float=False),
-        "dividend_yield": clean_number(info_map.get("dividendYieldRatio"), as_float=True),
+        "dividend_yield": dividend_yield,
+    }
+
+    if isinstance(etf_raw, dict) and etf_raw:
+        result["etf_info"] = {
+            "issuer": etf_raw.get("issuerName"),
+            "nav": clean_number(etf_raw.get("nav"), as_float=True),
+            "total_fee_pct": clean_number(etf_raw.get("totalFee"), as_float=True),
+            "deviation_rate_pct": clean_number(etf_raw.get("deviationRate"), as_float=True),
+            "return_1m_pct": clean_number(etf_raw.get("returnRate1m"), as_float=True),
+            "return_3m_pct": clean_number(etf_raw.get("returnRate3m"), as_float=True),
+            "return_1y_pct": clean_number(etf_raw.get("returnRate1y"), as_float=True),
+        }
+
+    # 증권사 컨센서스 (목표주가, 투자의견)
+    cons_raw = data.get("consensusInfo") or {}
+    consensus = None
+    if isinstance(cons_raw, dict) and (cons_raw.get("priceTargetMean") or cons_raw.get("recommMean")):
+        consensus = {
+            "target_price": clean_number(cons_raw.get("priceTargetMean"), as_float=False),
+            "opinion_score": clean_number(cons_raw.get("recommMean"), as_float=True),
+            "updated_at": str(cons_raw.get("createDate", "")).strip(),
+        }
+
+    # 최근 5거래일 외국인·기관·개인 수급 동향
+    deals_raw = data.get("dealTrendInfos") or []
+    investor_trend: List[Dict[str, Any]] = []
+    if isinstance(deals_raw, list):
+        for d in deals_raw[:5]:
+            if not isinstance(d, dict):
+                continue
+            investor_trend.append({
+                "date": str(d.get("bizdate", "")).strip(),
+                "close_price": clean_number(d.get("closePrice"), as_float=False),
+                "foreigner_net": clean_number(d.get("foreignerPureBuyQuant"), as_float=False),
+                "organ_net": clean_number(d.get("organPureBuyQuant"), as_float=False),
+                "individual_net": clean_number(d.get("individualPureBuyQuant"), as_float=False),
+            })
+
+    # 동종 업종 경쟁사 비교 (최대 4개)
+    peers_raw = data.get("industryCompareInfo") or []
+    peers: List[Dict[str, Any]] = []
+    if isinstance(peers_raw, list):
+        for p in peers_raw[:4]:
+            if not isinstance(p, dict) or not p.get("stockName"):
+                continue
+            p_rate = clean_number(p.get("fluctuationsRatio"), as_float=True)
+            p_cmp = p.get("compareToPreviousPrice") or {}
+            if isinstance(p_cmp, dict) and p_cmp.get("name") == "FALLING" and p_rate and p_rate > 0:
+                p_rate = -p_rate
+            peers.append({
+                "code": str(p.get("itemCode", "")).strip(),
+                "name": str(p.get("stockName", "")).strip(),
+                "current_price": clean_number(p.get("closePrice"), as_float=False),
+                "change_rate": p_rate,
+            })
+
+    # 증권사 최신 리포트 (최대 5건)
+    res_raw = data.get("researches") or []
+    researches: List[Dict[str, str]] = []
+    if isinstance(res_raw, list):
+        for r in res_raw[:5]:
+            if not isinstance(r, dict) or not r.get("tit"):
+                continue
+            researches.append({
+                "broker": str(r.get("bnm", "")).strip(),
+                "title": str(r.get("tit", "")).strip(),
+                "date": str(r.get("wdt", "")).strip(),
+            })
+
+    result["_extra"] = {
+        "consensus": consensus,
+        "investor_trend": investor_trend,
+        "peers": peers,
+        "researches": researches,
     }
 
     logger.info(
@@ -317,32 +466,262 @@ def fetch_news(stock_name: str, num: int = 5) -> List[Dict[str, str]]:
     return articles
 
 
+def _resolve_us_reuters_code(ticker: str) -> str:
+    """네이버 자동완성 API로 미국 티커(예: AAPL)의 정확한 reutersCode(예: AAPL.O)를 찾는다."""
+    upper_ticker = ticker.strip().upper()
+    if "." in upper_ticker:
+        return upper_ticker
+
+    ac_url = f"https://ac.stock.naver.com/ac?q={upper_ticker}&target=stock"
+    data = _request_naver_json(ac_url, upper_ticker, "us-search")
+    items = data.get("items") or []
+
+    usa_items = [
+        item for item in items
+        if isinstance(item, dict) and item.get("nationCode") == "USA"
+    ]
+    for item in usa_items:
+        if str(item.get("code", "")).upper() == upper_ticker and item.get("reutersCode"):
+            return str(item["reutersCode"])
+    if usa_items and usa_items[0].get("reutersCode"):
+        return str(usa_items[0]["reutersCode"])
+
+    raise RuntimeError(f"미국 종목 티커({upper_ticker})를 네이버 증권에서 찾을 수 없습니다.")
+
+
+def _parse_us_finance_rows(fin_data: Dict[str, Any], period_type: str) -> List[Dict[str, Any]]:
+    """네이버 해외주식 finance 응답(원화 환산 krw 억원 기준)을 표준 실적 리스트로 변환한다."""
+    tr_title_list = fin_data.get("trTitleList") or []
+    row_list = fin_data.get("rowList") or []
+    if not isinstance(tr_title_list, list) or not isinstance(row_list, list):
+        return []
+
+    row_map: Dict[str, Dict[str, Any]] = {}
+    for row in row_list:
+        if isinstance(row, dict) and row.get("title"):
+            row_map[row["title"].strip()] = row.get("columns") or {}
+
+    def _get_cell(metric_name: str, key: str, use_krw: bool = False) -> Any:
+        cell = row_map.get(metric_name, {}).get(key)
+        if isinstance(cell, dict):
+            return cell.get("krw") if use_krw and cell.get("krw") else cell.get("value")
+        return None
+
+    results: List[Dict[str, Any]] = []
+    for col in tr_title_list:
+        if not isinstance(col, dict):
+            continue
+        key = col.get("key")
+        title = str(col.get("title", "")).strip()
+        if not key or not title:
+            continue
+
+        rev_krw_eok = clean_number(_get_cell("매출액", key, use_krw=True), as_float=True)
+        op_krw_eok = clean_number(_get_cell("영업이익", key, use_krw=True), as_float=True)
+
+        results.append({
+            "period": title[:7] if len(title) >= 7 else title,
+            "period_type": period_type,
+            "is_consensus": col.get("isConsensus") == "Y",
+            "revenue": int(round(rev_krw_eok * 10**8)) if rev_krw_eok is not None else None,
+            "operating_income": int(round(op_krw_eok * 10**8)) if op_krw_eok is not None else None,
+            "operating_margin": clean_number(_get_cell("영업이익률", key), as_float=True),
+            "roe": clean_number(_get_cell("ROE", key), as_float=True),
+            "debt_ratio": clean_number(_get_cell("부채비율", key), as_float=True),
+            "reserve_ratio": clean_number(_get_cell("유보율", key), as_float=True),
+        })
+    return results
+
+
+def _collect_us_stock_data(ticker: str) -> Dict[str, Any]:
+    """미국 주식/ETF 데이터를 네이버 해외주식 API + Serper 뉴스에서 수집한다."""
+    errors: List[Dict[str, str]] = []
+    upper_ticker = ticker.strip().upper()
+    reuters_code = _resolve_us_reuters_code(upper_ticker)
+
+    # 1. 기본 시세 + 스냅샷
+    basic_url = f"https://api.stock.naver.com/stock/{reuters_code}/basic"
+    basic = _request_naver_json(basic_url, upper_ticker, "us-basic")
+
+    stock_name = str(basic.get("stockName") or upper_ticker).strip()
+    stock_name_eng = str(basic.get("stockNameEng") or "").strip()
+    stock_type = "etf" if basic.get("isEtf") or basic.get("isEtfAmerica") else str(basic.get("stockEndType", "stock")).lower()
+
+    current_price = clean_number(basic.get("closePriceRaw") or basic.get("closePrice"), as_float=True)
+    change_rate = clean_number(basic.get("fluctuationsRatioRaw") or basic.get("fluctuationsRatio"), as_float=True)
+    cmp_info = basic.get("compareToPreviousPrice") or {}
+    if isinstance(cmp_info, dict) and cmp_info.get("name") == "FALLING" and change_rate and change_rate > 0:
+        change_rate = -change_rate
+
+    info_map = {
+        item.get("code"): item.get("value")
+        for item in (basic.get("stockItemTotalInfos") or [])
+        if isinstance(item, dict) and item.get("code")
+    }
+
+    snapshot: Dict[str, Any] = {
+        "current_price": current_price,
+        "change_rate": change_rate,
+        "market_cap": clean_number(basic.get("marketValueKrwRaw"), as_float=False),
+        "high_52w": clean_number(info_map.get("highPriceOf52Weeks"), as_float=True),
+        "low_52w": clean_number(info_map.get("lowPriceOf52Weeks"), as_float=True),
+        "foreign_rate": None,
+        "per": clean_number(info_map.get("per"), as_float=True),
+        "cns_per": None,
+        "pbr": clean_number(info_map.get("pbr"), as_float=True),
+        "bps": clean_number(info_map.get("bps"), as_float=True),
+        "dividend_yield": clean_number(info_map.get("dividendYieldRatio"), as_float=True),
+    }
+
+    # 2. 컨센서스, 경쟁사, 리포트
+    consensus = None
+    peers: List[Dict[str, Any]] = []
+    researches: List[Dict[str, str]] = []
+    try:
+        integ_url = f"https://api.stock.naver.com/stock/{reuters_code}/integration"
+        integ = _request_naver_json(integ_url, upper_ticker, "us-integration")
+
+        cons_raw = integ.get("consensusInfo") or {}
+        if isinstance(cons_raw, dict) and (cons_raw.get("priceTargetMean") or cons_raw.get("recommMean")):
+            target_p = clean_number(cons_raw.get("priceTargetMean"), as_float=True)
+            upside = round((target_p - current_price) / current_price * 100, 1) if (target_p and current_price) else None
+            consensus = {
+                "target_price": target_p,
+                "opinion_score": clean_number(cons_raw.get("recommMean"), as_float=True),
+                "upside_pct": upside,
+                "updated_at": str(cons_raw.get("createDate", "")).strip(),
+            }
+
+        global_peers = (integ.get("industryCompareInfo") or {}).get("globalStocks") or []
+        for p in global_peers[:4]:
+            if not isinstance(p, dict) or not p.get("stockName"):
+                continue
+            p_rate = clean_number(p.get("fluctuationsRatio"), as_float=True)
+            p_cmp = p.get("compareToPreviousPrice") or {}
+            if isinstance(p_cmp, dict) and p_cmp.get("name") == "FALLING" and p_rate and p_rate > 0:
+                p_rate = -p_rate
+            peers.append({
+                "code": str(p.get("symbolCode") or p.get("reutersCode") or "").strip(),
+                "name": str(p.get("stockName", "")).strip(),
+                "current_price": clean_number(p.get("closePrice"), as_float=True),
+                "change_rate": p_rate,
+            })
+
+        for r in (integ.get("reports") or [])[:5]:
+            if isinstance(r, dict) and r.get("title"):
+                researches.append({
+                    "broker": str(r.get("brokerName") or r.get("writer") or "리서치").strip(),
+                    "title": str(r.get("title", "")).strip(),
+                    "date": str(r.get("writeDate", "")).strip(),
+                })
+    except RuntimeError as exc:
+        errors.append({"section": "snapshot_detail", "message": str(exc)})
+
+    # 3. 연간 & 분기 실적 (ETF 제외)
+    financials: List[Dict[str, Any]] = []
+    quarterly_financials: List[Dict[str, Any]] = []
+    if stock_type != "etf":
+        try:
+            fin_ann = _request_naver_json(f"https://api.stock.naver.com/stock/{reuters_code}/finance/annual", upper_ticker, "us-annual")
+            financials = _parse_us_finance_rows(fin_ann, "annual")
+        except RuntimeError as exc:
+            errors.append({"section": "financials", "message": str(exc)})
+
+        try:
+            fin_q = _request_naver_json(f"https://api.stock.naver.com/stock/{reuters_code}/finance/quarter", upper_ticker, "us-quarter")
+            quarterly_financials = _parse_us_finance_rows(fin_q, "quarter")[-4:]
+        except RuntimeError:
+            quarterly_financials = []
+
+    # 4. Serper 뉴스 (한글 종목명 + 티커로 정밀 검색)
+    news: List[Dict[str, str]] = []
+    try:
+        query_term = f"{stock_name} {upper_ticker}" if stock_name != upper_ticker else upper_ticker
+        news = fetch_news(query_term, num=5)
+    except RuntimeError as exc:
+        errors.append({"section": "news", "message": str(exc)})
+
+    display_name = f"{stock_name} ({stock_name_eng})" if stock_name_eng and stock_name_eng != stock_name else stock_name
+    return {
+        "code": upper_ticker.split(".")[0],
+        "name": display_name,
+        "stock_type": stock_type,
+        "currency": "USD",
+        "snapshot": snapshot,
+        "consensus": consensus,
+        "investor_trend": [],
+        "peers": peers,
+        "researches": researches,
+        "financials": financials,
+        "quarterly_financials": quarterly_financials,
+        "news": news,
+        "sources": {
+            "market": f"네이버 증권 해외주식 ({basic.get('stockExchangeName', 'USA')}, stock.naver.com)",
+            "financials": "네이버 증권 해외주식 실적 원화환산 (stock.naver.com)",
+            "news": "Serper Google News (google.serper.dev)",
+            "naver_url": f"https://stock.naver.com/worldstock/stock/{reuters_code}/total",
+            "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        },
+        "errors": errors,
+    }
+
+
 def collect_stock_data(code: str) -> Dict[str, Any]:
-    """종목코드를 받아 시세, 투자정보, 실적, 뉴스를 통합 수집하고 영역별 오류를 격리한다."""
+    """종목명 또는 코드를 받아 국내/미국 종목을 자동 판별하고 시세, 투자정보, 실적, 뉴스를 통합 수집한다."""
+    cleaned_code = resolve_stock_code(code)
+    if is_us_ticker(cleaned_code):
+        return _collect_us_stock_data(cleaned_code)
+
+    code = cleaned_code
     errors: List[Dict[str, str]] = []
 
     # 1. 기본 시세 및 정식 종목명 (필수 선행 작업)
     basic = fetch_basic_info(code)
     stock_name = basic["name"]
+    stock_type = basic.get("stock_type", "stock")
 
     snapshot: Dict[str, Any] = {
         "current_price": basic["current_price"],
         "change_rate": basic["change_rate"],
     }
 
-    # 2. 투자정보 (실패 시 errors에 기록하고 계속 진행)
+    # 2. 투자정보 + 컨센서스/수급/업종/리포트 (실패 시 errors에 기록하고 계속 진행)
+    extra: Dict[str, Any] = {
+        "consensus": None,
+        "investor_trend": [],
+        "peers": [],
+        "researches": [],
+    }
     try:
         integ = fetch_integration_info(code)
+        extracted_extra = integ.pop("_extra", None)
+        if isinstance(extracted_extra, dict):
+            extra.update(extracted_extra)
         snapshot.update(integ)
     except RuntimeError as exc:
         errors.append({"section": "snapshot_detail", "message": str(exc)})
 
-    # 3. 기업실적분석 연간 (실패 시 errors에 기록하고 계속 진행)
+    # 목표주가 상승여력(%) 계산
+    if extra["consensus"] and extra["consensus"].get("target_price") and snapshot.get("current_price"):
+        target_p = extra["consensus"]["target_price"]
+        curr_p = snapshot["current_price"]
+        if curr_p > 0:
+            extra["consensus"]["upside_pct"] = round((target_p - curr_p) / curr_p * 100, 1)
+
+    # 3. 기업실적분석 연간 & 분기 (ETF는 재무제표가 없으므로 생략)
     financials: List[Dict[str, Any]] = []
-    try:
-        financials = fetch_financials(code, period_type="annual")
-    except RuntimeError as exc:
-        errors.append({"section": "financials", "message": str(exc)})
+    quarterly_financials: List[Dict[str, Any]] = []
+    if stock_type != "etf":
+        try:
+            financials = fetch_financials(code, period_type="annual")
+        except RuntimeError as exc:
+            errors.append({"section": "financials", "message": str(exc)})
+
+        try:
+            quarterly_financials = fetch_financials(code, period_type="quarter")[-4:]
+        except RuntimeError:
+            # 분기 실적은 보조 데이터이므로 실패해도 치명적 오류로 노출하지 않음
+            quarterly_financials = []
 
     # 4. Serper 뉴스 (파싱한 정식 종목명으로 조회, 실패 시 errors에 기록하고 계속 진행)
     news: List[Dict[str, str]] = []
@@ -354,12 +733,19 @@ def collect_stock_data(code: str) -> Dict[str, Any]:
     return {
         "code": code,
         "name": stock_name,
+        "stock_type": stock_type,
+        "currency": "KRW",
         "snapshot": snapshot,
+        "consensus": extra["consensus"],
+        "investor_trend": extra["investor_trend"],
+        "peers": extra["peers"],
+        "researches": extra["researches"],
         "financials": financials,
+        "quarterly_financials": quarterly_financials,
         "news": news,
         "sources": {
-            "market": "네이버 증권 시세·투자정보 (stock.naver.com)",
-            "financials": "네이버 증권 기업실적분석 (stock.naver.com)",
+            "market": "네이버 증권 시세·투자정보·수급·컨센서스 (stock.naver.com)",
+            "financials": "네이버 증권 기업실적분석 연간/분기 (stock.naver.com)",
             "news": "Serper Google News (google.serper.dev)",
             "naver_url": f"https://stock.naver.com/domestic/stock/{code}/price",
             "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
