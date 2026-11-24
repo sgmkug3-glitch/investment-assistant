@@ -537,6 +537,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 li.appendChild(meta);
                 dartListEl.appendChild(li);
             });
+        } else if (data.currency === "KRW" && data.stock_type !== "etf") {
+            dartWrap.classList.remove("hidden");
+            dartProfileEl.textContent = "DART 공식 공시 데이터가 없습니다. (서버 환경변수 DART_API_KEY 설정 여부를 확인해 주세요)";
         } else {
             dartWrap.classList.add("hidden");
         }
