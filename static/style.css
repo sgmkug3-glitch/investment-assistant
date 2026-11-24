@@ -461,7 +461,52 @@ body {
 .details-box {
     margin-top: 16px;
     border-top: 1px solid var(--border-color);
-    padding-top: 8px;
+    padding-top: 14px;
+}
+
+.sub-tab-nav {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding: 4px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.sub-tab-btn {
+    flex: 1;
+    min-width: 110px;
+    padding: 8px 12px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    font-family: inherit;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.sub-tab-btn:hover {
+    color: var(--text-main);
+}
+
+.sub-tab-btn.active {
+    background: #ffffff;
+    color: var(--primary);
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.sub-tab-panel {
+    display: none;
+}
+
+.sub-tab-panel.active {
+    display: block;
 }
 
 .table-wrapper {

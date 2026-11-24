@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나의 투자도우미 (My Investment Assistant)</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20261124l">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20261124m">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
@@ -108,71 +108,90 @@
                     </div>
 
                     <div id="tab1-details-box" class="details-box hidden">
-                        <div id="tab1-annual-wrap">
-                            <h4 class="chart-title" style="margin-top: 16px;">기업실적분석 (연간 추이)</h4>
-                            <div class="chart-box chart-mini">
-                                <canvas id="tab1-annual-chart"></canvas>
-                            </div>
-                            <div class="table-wrapper">
-                                <table class="finance-table">
-                                    <thead id="tab1-finance-thead"></thead>
-                                    <tbody id="tab1-finance-tbody"></tbody>
-                                </table>
-                            </div>
+                        <div class="sub-tab-nav" role="tablist">
+                            <button type="button" class="sub-tab-btn active" data-subtab="sub-finance">실적 추이</button>
+                            <button type="button" class="sub-tab-btn" data-subtab="sub-flow">수급 · 업종</button>
+                            <button type="button" class="sub-tab-btn" data-subtab="sub-official">리포트 · DART 공시</button>
+                            <button type="button" class="sub-tab-btn" data-subtab="sub-news">최신 뉴스</button>
                         </div>
 
-                        <div id="tab1-quarter-wrap" class="hidden">
-                            <h4 class="chart-title" style="margin-top: 20px;">최근 분기 실적 추이</h4>
-                            <div class="chart-box chart-mini">
-                                <canvas id="tab1-quarter-chart"></canvas>
+                        <!-- 서브탭 1: 실적 추이 -->
+                        <div id="sub-finance" class="sub-tab-panel active">
+                            <div id="tab1-annual-wrap">
+                                <h4 class="chart-title">기업실적분석 (연간 추이)</h4>
+                                <div class="chart-box chart-mini">
+                                    <canvas id="tab1-annual-chart"></canvas>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="finance-table">
+                                        <thead id="tab1-finance-thead"></thead>
+                                        <tbody id="tab1-finance-tbody"></tbody>
+                                    </table>
+                                </div>
                             </div>
-                            <div class="table-wrapper">
-                                <table class="finance-table">
-                                    <thead id="tab1-quarter-thead"></thead>
-                                    <tbody id="tab1-quarter-tbody"></tbody>
-                                </table>
-                            </div>
-                        </div>
 
-                        <div id="tab1-trend-wrap" class="hidden">
-                            <h4 class="chart-title" style="margin-top: 20px;">최근 5거래일 수급 동향 (순매수 주수)</h4>
-                            <div class="table-wrapper">
-                                <table class="finance-table">
-                                    <thead>
-                                        <tr>
-                                            <th>날짜</th>
-                                            <th>종가</th>
-                                            <th>외국인</th>
-                                            <th>기관</th>
-                                            <th>개인</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tab1-trend-tbody"></tbody>
-                                </table>
+                            <div id="tab1-quarter-wrap" class="hidden">
+                                <h4 class="chart-title" style="margin-top: 20px;">최근 분기 실적 추이</h4>
+                                <div class="chart-box chart-mini">
+                                    <canvas id="tab1-quarter-chart"></canvas>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="finance-table">
+                                        <thead id="tab1-quarter-thead"></thead>
+                                        <tbody id="tab1-quarter-tbody"></tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
 
-                        <div id="tab1-peers-wrap" class="hidden">
-                            <h4 class="chart-title" style="margin-top: 20px;">동종 업종 주요 종목 비교</h4>
-                            <div id="tab1-peers-grid" class="snapshot-grid"></div>
+                        <!-- 서브탭 2: 수급 · 업종 비교 -->
+                        <div id="sub-flow" class="sub-tab-panel">
+                            <div id="tab1-trend-wrap" class="hidden">
+                                <h4 class="chart-title">최근 5거래일 수급 동향 (순매수 주수)</h4>
+                                <div class="table-wrapper">
+                                    <table class="finance-table">
+                                        <thead>
+                                            <tr>
+                                                <th>날짜</th>
+                                                <th>종가</th>
+                                                <th>외국인</th>
+                                                <th>기관</th>
+                                                <th>개인</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tab1-trend-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div id="tab1-peers-wrap" class="hidden">
+                                <h4 class="chart-title" style="margin-top: 18px;">동종 업종 주요 종목 비교</h4>
+                                <div id="tab1-peers-grid" class="snapshot-grid"></div>
+                            </div>
                         </div>
 
-                        <div id="tab1-research-wrap" class="hidden">
-                            <h4 class="chart-title" style="margin-top: 20px;">증권사 최신 리포트</h4>
-                            <ul id="tab1-research-list" class="news-list"></ul>
+                        <!-- 서브탭 3: 증권사 리포트 · DART 공시 -->
+                        <div id="sub-official" class="sub-tab-panel">
+                            <div id="tab1-research-wrap" class="hidden">
+                                <h4 class="chart-title">증권사 최신 리포트</h4>
+                                <ul id="tab1-research-list" class="news-list"></ul>
+                            </div>
+
+                            <div id="tab1-dart-wrap" class="hidden">
+                                <h4 class="chart-title" style="margin-top: 18px;">금융감독원(Open DART) 기업개황 &amp; 공식 공시</h4>
+                                <div id="tab1-dart-profile" class="source-bar"></div>
+                                <ul id="tab1-dart-list" class="news-list"></ul>
+                            </div>
                         </div>
 
-                        <div id="tab1-dart-wrap" class="hidden">
-                            <h4 class="chart-title" style="margin-top: 20px;">금융감독원(Open DART) 기업개황 &amp; 공식 공시</h4>
-                            <div id="tab1-dart-profile" class="source-bar"></div>
-                            <ul id="tab1-dart-list" class="news-list"></ul>
+                        <!-- 서브탭 4: 최신 뉴스 -->
+                        <div id="sub-news" class="sub-tab-panel">
+                            <div class="section-header">
+                                <h4 class="chart-title" style="margin-bottom: 0;">최신 관련 뉴스 (Serper API)</h4>
+                                <span id="tab1-news-count" class="count-badge">0건</span>
+                            </div>
+                            <ul id="tab1-news-list" class="news-list"></ul>
                         </div>
-
-                        <div class="section-header" style="margin-top: 20px;">
-                            <h4 class="chart-title" style="margin-bottom: 0;">최신 관련 뉴스 (Serper API)</h4>
-                            <span id="tab1-news-count" class="count-badge">0건</span>
-                        </div>
-                        <ul id="tab1-news-list" class="news-list" style="margin-top: 10px;"></ul>
                     </div>
                 </div>
 
@@ -396,6 +415,6 @@
         </section>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=20261124l"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=20261124m"></script>
 </body>
 </html>

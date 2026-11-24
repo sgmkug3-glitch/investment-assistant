@@ -200,6 +200,26 @@ document.addEventListener("DOMContentLoaded", () => {
         tab1DetailsToggle.textContent = isHidden
             ? "상세 실적 · 수급 · 리포트 · 뉴스 펼쳐보기 ▾"
             : "상세 실적 · 수급 · 리포트 · 뉴스 접기 ▴";
+        if (!isHidden) {
+            if (tab1AnnualChart) tab1AnnualChart.resize();
+            if (tab1QuarterChart) tab1QuarterChart.resize();
+        }
+    });
+
+    const subTabButtons = document.querySelectorAll(".sub-tab-btn");
+    const subTabPanels = document.querySelectorAll(".sub-tab-panel");
+    subTabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const targetId = btn.getAttribute("data-subtab");
+            subTabButtons.forEach((b) => b.classList.remove("active"));
+            subTabPanels.forEach((p) => p.classList.remove("active"));
+            btn.classList.add("active");
+            document.getElementById(targetId).classList.add("active");
+            if (targetId === "sub-finance") {
+                if (tab1AnnualChart) tab1AnnualChart.resize();
+                if (tab1QuarterChart) tab1QuarterChart.resize();
+            }
+        });
     });
 
     tab1ResetBtn.addEventListener("click", () => {
