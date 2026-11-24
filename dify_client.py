@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import Any, Dict, Optional
 
 import requests
@@ -50,29 +51,48 @@ def ask_dify_chatbot(
 
     logger.info(f"[DIFY] Dify 챗봇 API 호출 시작 (bot={bot_type})")
 
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=DIFY_TIMEOUT)
-    except requests.Timeout as exc:
-        logger.error(f"[ERROR] Dify API 네트워크 타임아웃 (bot={bot_type})", exc_info=True)
-        raise RuntimeError("AI 챗봇 응답 대기 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.") from exc
-    except requests.RequestException as exc:
-        logger.error(f"[ERROR] Dify API 연결 실패 (bot={bot_type})", exc_info=True)
-        raise RuntimeError("Dify API 서버에 연결할 수 없습니다.") from exc
+    max_attempts = 2
+    response = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=DIFY_TIMEOUT)
+        except requests.Timeout as exc:
+            logger.error(f"[ERROR] Dify API 네트워크 타임아웃 (bot={bot_type})", exc_info=True)
+            raise RuntimeError("AI 챗봇 응답 대기 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.") from exc
+        except requests.RequestException as exc:
+            logger.error(f"[ERROR] Dify API 연결 실패 (bot={bot_type})", exc_info=True)
+            raise RuntimeError("Dify API 서버에 연결할 수 없습니다.") from exc
 
-    if response.status_code in (401, 403):
-        logger.error(f"[ERROR] Dify API 인증 실패 (bot={bot_type}, status={response.status_code})")
-        raise RuntimeError(f"Dify API 인증에 실패했습니다. ({env_key_name}를 확인해 주세요)")
+        if response.status_code in (401, 403):
+            logger.error(f"[ERROR] Dify API 인증 실패 (bot={bot_type}, status={response.status_code})")
+            raise RuntimeError(f"Dify API 인증에 실패했습니다. ({env_key_name}를 확인해 주세요)")
 
-    if not response.ok:
+        if response.ok:
+            break
+
         detail = ""
         try:
             err_json = response.json()
             detail = err_json.get("message", "")
         except ValueError:
             detail = response.text[:150]
+
+        is_transient = (
+            response.status_code in (429, 502, 503, 504)
+            or any(kw in detail.lower() for kw in ("high demand", "temporary", "overloaded", "rate limit", "unavailable"))
+        )
+        if is_transient and attempt < max_attempts:
+            logger.warning(f"[DIFY] 일시적 AI 서버 혼잡 감지, 1.5초 후 재시도 (attempt={attempt}, bot={bot_type})")
+            time.sleep(1.5)
+            continue
+
         logger.error(
             f"[ERROR] Dify API 호출 실패 (bot={bot_type}, status={response.status_code}, detail={detail})"
         )
+        if is_transient:
+            raise RuntimeError(
+                "현재 Dify에 연결된 AI 모델 서버에 일시적으로 요청이 몰려 응답이 지연되고 있습니다. 5~10초 후 다시 시도해 주세요."
+            )
         msg = f"Dify 챗봇 호출에 실패했습니다. (HTTP {response.status_code})"
         if detail:
             msg += f" - {detail}"
