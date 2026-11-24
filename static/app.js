@@ -176,6 +176,17 @@ document.addEventListener("DOMContentLoaded", () => {
         analyzeStock(selectedCode);
     });
 
+    tab1BuyPriceInput.addEventListener("input", () => {
+        const raw = tab1BuyPriceInput.value.replace(/[^\d.]/g, "");
+        if (!raw) {
+            tab1BuyPriceInput.value = "";
+            return;
+        }
+        const parts = raw.split(".");
+        const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        tab1BuyPriceInput.value = parts.length > 1 ? `${intPart}.${parts[1].slice(0, 2)}` : intPart;
+    });
+
     tab1SearchForm.addEventListener("submit", (e) => {
         e.preventDefault();
         tab1Autocomplete.classList.add("hidden");
