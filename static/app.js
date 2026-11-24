@@ -210,35 +210,59 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tab1CurrentCode = code;
         tab1ConversationId = "";
+        tab1Loading.textContent = "1/2단계: 종목 시세 · 실적 · 공시 · 뉴스를 수집 중입니다...";
         tab1Loading.classList.remove("hidden");
         tab1ResultArea.classList.add("hidden");
         tab1AnalyzeBtn.disabled = true;
 
         try {
-            const res = await fetch("/api/chat/analysis", {
+            // 1단계: 빠른 데이터 수집 (/fetch) 후 즉시 화면 렌더링
+            const fetchRes = await fetch("/fetch", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code, mode: "init" }),
+                body: JSON.stringify({ code }),
             });
-            const data = await res.json();
+            const stockData = await fetchRes.json();
 
-            if (data.stock_data) {
-                tab1CurrentCode = data.stock_data.code || code;
-                tab1CodeInput.value = tab1CurrentCode;
-                renderTab1Evidence(data.stock_data);
-                console.log(`[COLLECT]   종목 근거 데이터 수집 완료 (${data.stock_data.name})`);
-                tab1ResultArea.classList.remove("hidden");
+            if (!fetchRes.ok) {
+                throw new Error(stockData.error || `데이터 수집 실패 (HTTP ${fetchRes.status})`);
             }
 
-            if (!res.ok) {
-                throw new Error(data.error || `요청 실패 (HTTP ${res.status})`);
-            }
+            tab1CurrentCode = stockData.code || code;
+            tab1CodeInput.value = tab1CurrentCode;
+            renderTab1Evidence(stockData);
+            console.log(`[COLLECT]   종목 근거 데이터 수집 완료 (${stockData.name})`);
+            tab1Loading.classList.add("hidden");
+            tab1ResultArea.classList.remove("hidden");
 
-            tab1ConversationId = data.conversation_id || "";
-            console.log(`[DIFY]      Dify 챗봇 응답 수신 완료 (bot=analysis, conversation_id=${tab1ConversationId})`);
-
+            // 2단계: 수집된 근거를 그대로 넘겨 Dify 전문가 리포트 생성
             tab1ChatLog.innerHTML = "";
-            appendChatMessage(tab1ChatLog, data.answer, "bot");
+            const loadingMsg = appendChatMessage(
+                tab1ChatLog,
+                "수집된 근거를 바탕으로 전문가 AI 리포트를 작성하고 있습니다...",
+                "bot",
+                true
+            );
+
+            const aiRes = await fetch("/api/chat/analysis", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    code: tab1CurrentCode,
+                    mode: "init",
+                    stock_data: stockData,
+                }),
+            });
+            const aiData = await aiRes.json();
+
+            loadingMsg.remove();
+            if (!aiRes.ok) {
+                throw new Error(aiData.error || `AI 분석 실패 (HTTP ${aiRes.status})`);
+            }
+
+            tab1ConversationId = aiData.conversation_id || "";
+            console.log(`[DIFY]      Dify 챗봇 응답 수신 완료 (bot=analysis, conversation_id=${tab1ConversationId})`);
+            appendChatMessage(tab1ChatLog, aiData.answer, "bot");
         } catch (err) {
             console.error(`[ERROR]     요청 중 오류 발생 (${err.message})`);
             if (tab1ResultArea.classList.contains("hidden")) {

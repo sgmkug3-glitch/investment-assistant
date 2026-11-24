@@ -209,12 +209,16 @@ def chat_analysis():
             logger.error(f"[ERROR] 탭1 후속 채팅 Dify 호출 실패 (code={code}): {exc}")
             return jsonify({"error": str(exc)}), 502
 
-    # 초기 조회(mode=='init' 또는 새 대화): 종목 데이터 수집 + 정량 스코어카드 + 전문가 프롬프트
-    try:
-        stock_data = collect_stock_data(code)
-    except RuntimeError as exc:
-        logger.error(f"[ERROR] 종목 근거 데이터 수집 실패 (code={code}): {exc}", exc_info=True)
-        return jsonify({"error": str(exc)}), 400
+    # 초기 조회(mode=='init' 또는 새 대화): 이미 수집된 stock_data가 있으면 재사용하여 속도 극대화
+    provided_stock_data = payload.get('stock_data')
+    if isinstance(provided_stock_data, dict) and provided_stock_data.get('name'):
+        stock_data = provided_stock_data
+    else:
+        try:
+            stock_data = collect_stock_data(code)
+        except RuntimeError as exc:
+            logger.error(f"[ERROR] 종목 근거 데이터 수집 실패 (code={code}): {exc}", exc_info=True)
+            return jsonify({"error": str(exc)}), 400
 
     scorecard = _build_quant_scorecard(stock_data)
     scorecard_json = json.dumps(scorecard, ensure_ascii=False, indent=2)

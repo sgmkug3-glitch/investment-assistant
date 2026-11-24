@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -694,21 +695,58 @@ def collect_stock_data(code: str) -> Dict[str, Any]:
         "change_rate": basic["change_rate"],
     }
 
-    # 2. 투자정보 + 컨센서스/수급/업종/리포트 (실패 시 errors에 기록하고 계속 진행)
+    # 2~5. 투자정보, 연간/분기 실적, Serper 뉴스, Open DART를 병렬 수집
     extra: Dict[str, Any] = {
         "consensus": None,
         "investor_trend": [],
         "peers": [],
         "researches": [],
     }
-    try:
-        integ = fetch_integration_info(code)
-        extracted_extra = integ.pop("_extra", None)
-        if isinstance(extracted_extra, dict):
-            extra.update(extracted_extra)
-        snapshot.update(integ)
-    except RuntimeError as exc:
-        errors.append({"section": "snapshot_detail", "message": str(exc)})
+    financials: List[Dict[str, Any]] = []
+    quarterly_financials: List[Dict[str, Any]] = []
+    news: List[Dict[str, str]] = []
+    dart_info: Optional[Dict[str, Any]] = None
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        fut_integ = pool.submit(fetch_integration_info, code)
+        fut_news = pool.submit(fetch_news, stock_name, 5)
+        fut_annual = pool.submit(fetch_financials, code, "annual") if stock_type != "etf" else None
+        fut_quarter = pool.submit(fetch_financials, code, "quarter") if stock_type != "etf" else None
+        fut_dart = pool.submit(fetch_dart_info, code) if stock_type != "etf" else None
+
+        try:
+            integ = fut_integ.result()
+            extracted_extra = integ.pop("_extra", None)
+            if isinstance(extracted_extra, dict):
+                extra.update(extracted_extra)
+            snapshot.update(integ)
+        except RuntimeError as exc:
+            errors.append({"section": "snapshot_detail", "message": str(exc)})
+
+        if fut_annual is not None:
+            try:
+                financials = fut_annual.result()
+            except RuntimeError as exc:
+                errors.append({"section": "financials", "message": str(exc)})
+
+        if fut_quarter is not None:
+            try:
+                quarterly_financials = fut_quarter.result()[-4:]
+            except RuntimeError:
+                quarterly_financials = []
+
+        try:
+            news = fut_news.result()
+        except RuntimeError as exc:
+            errors.append({"section": "news", "message": str(exc)})
+
+        if fut_dart is not None:
+            try:
+                dart_info = fut_dart.result()
+            except RuntimeError as exc:
+                errors.append({"section": "dart", "message": str(exc)})
+            except Exception as exc:
+                logger.warning(f"[DART] Open DART 조회 예외 (code={code}): {exc}")
 
     # 목표주가 상승여력(%) 계산
     if extra["consensus"] and extra["consensus"].get("target_price") and snapshot.get("current_price"):
@@ -716,38 +754,6 @@ def collect_stock_data(code: str) -> Dict[str, Any]:
         curr_p = snapshot["current_price"]
         if curr_p > 0:
             extra["consensus"]["upside_pct"] = round((target_p - curr_p) / curr_p * 100, 1)
-
-    # 3. 기업실적분석 연간 & 분기 (ETF는 재무제표가 없으므로 생략)
-    financials: List[Dict[str, Any]] = []
-    quarterly_financials: List[Dict[str, Any]] = []
-    if stock_type != "etf":
-        try:
-            financials = fetch_financials(code, period_type="annual")
-        except RuntimeError as exc:
-            errors.append({"section": "financials", "message": str(exc)})
-
-        try:
-            quarterly_financials = fetch_financials(code, period_type="quarter")[-4:]
-        except RuntimeError:
-            # 분기 실적은 보조 데이터이므로 실패해도 치명적 오류로 노출하지 않음
-            quarterly_financials = []
-
-    # 4. Serper 뉴스 (파싱한 정식 종목명으로 조회, 실패 시 errors에 기록하고 계속 진행)
-    news: List[Dict[str, str]] = []
-    try:
-        news = fetch_news(stock_name, num=5)
-    except RuntimeError as exc:
-        errors.append({"section": "news", "message": str(exc)})
-
-    # 5. 금융감독원 Open DART 공식 공시 & 기업개황 (국내 일반 주식)
-    dart_info: Optional[Dict[str, Any]] = None
-    if stock_type != "etf":
-        try:
-            dart_info = fetch_dart_info(code)
-        except RuntimeError as exc:
-            errors.append({"section": "dart", "message": str(exc)})
-        except Exception as exc:
-            logger.warning(f"[DART] Open DART 조회 예외 (code={code}): {exc}")
 
     sources: Dict[str, str] = {
         "market": "네이버 증권 시세·투자정보·수급·컨센서스 (stock.naver.com)",
