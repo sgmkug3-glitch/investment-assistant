@@ -1,28 +1,32 @@
 :root {
-    --bg-page: #f3f9f4;
+    --bg-page: #f7f9f7;
     --bg-card: #ffffff;
-    --bg-subtle: #f7fbf8;
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --border-color: rgba(15, 23, 42, 0.08);
-    --border-strong: rgba(15, 23, 42, 0.14);
-    --primary: #16a34a;
-    --primary-dark: #15803d;
-    --primary-soft: #f0fdf4;
-    --primary-soft-hover: #dcfce7;
-    --primary-border: #86efac;
-    --primary-gradient: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
-    --primary-glow: 0 0 0 3px rgba(34, 197, 94, 0.18);
-    --rise-color: #e11d48;
-    --rise-bg: #fff1f2;
-    --fall-color: #2563eb;
-    --fall-bg: #eff6ff;
-    --consensus-bg: #fef3c7;
-    --consensus-text: #b45309;
-    --shadow-card: 0 4px 20px rgba(16, 185, 129, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
-    --shadow-hover: 0 10px 24px rgba(16, 185, 129, 0.09);
-    --radius: 16px;
-    --radius-sm: 10px;
+    --bg-subtle: #f3f6f3;
+    --text-main: #111827;
+    --text-secondary: #374151;
+    --text-muted: #6b7280;
+    --border-color: #e5eae5;
+    --border-strong: #d1d9d2;
+
+    /* 절제된 세이지 / 포레스트 그린 포인트 */
+    --primary: #1f6f4a;
+    --primary-hover: #175739;
+    --primary-soft: #eef6f1;
+    --primary-soft-hover: #e0efe6;
+    --primary-border: #b7d8c5;
+    --primary-dark: #145337;
+
+    /* 한국 증시 표준 등락 컬러 */
+    --rise-color: #d92d20;
+    --rise-bg: #fef3f2;
+    --fall-color: #155eef;
+    --fall-bg: #eff4ff;
+
+    --consensus-bg: #fef9c3;
+    --consensus-text: #854d0e;
+
+    --radius: 12px;
+    --radius-sm: 8px;
 }
 
 * {
@@ -34,139 +38,117 @@
 body {
     font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
     background-color: var(--bg-page);
-    background-image:
-        radial-gradient(at 15% 0%, rgba(34, 197, 94, 0.11) 0px, transparent 48%),
-        radial-gradient(at 85% 0%, rgba(16, 185, 129, 0.09) 0px, transparent 48%);
-    background-attachment: fixed;
     color: var(--text-main);
-    line-height: 1.6;
-    padding: 28px 16px 60px;
+    line-height: 1.58;
+    padding: 28px 16px 64px;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
 }
 
 .container {
-    max-width: 1000px;
+    max-width: 980px;
     margin: 0 auto;
 }
 
 /* =========================================================
-   상단 헤더 & 세그먼트 탭 네비게이션
+   상단 헤더 & 미니멀 언더라인 탭 네비게이션
    ========================================================= */
 .app-header {
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(10px);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
-    padding: 24px 28px;
-    box-shadow: var(--shadow-card);
-    margin-bottom: 22px;
+    padding: 24px 28px 0;
+    margin-bottom: 20px;
 }
 
 .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
     flex-wrap: wrap;
 }
 
 .brand h1 {
-    font-size: 1.65rem;
-    font-weight: 800;
+    font-size: 1.45rem;
+    font-weight: 700;
     letter-spacing: -0.025em;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-main);
 }
 
 .subtitle {
-    font-size: 0.9rem;
+    font-size: 0.87rem;
     color: var(--text-muted);
-    margin-top: 4px;
-    font-weight: 500;
+    margin-top: 3px;
+    font-weight: 400;
 }
 
 .test-link-btn {
-    padding: 7px 14px;
-    font-size: 0.82rem;
-    font-weight: 600;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
     color: var(--text-muted);
     background: var(--bg-subtle);
     border: 1px solid var(--border-color);
-    border-radius: 999px;
+    border-radius: 6px;
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: background-color 0.15s, color 0.15s;
 }
 
 .test-link-btn:hover {
-    color: var(--primary);
-    border-color: rgba(34, 197, 94, 0.3);
-    background: var(--primary-soft);
-    transform: translateY(-1px);
+    color: var(--text-main);
+    background: #e9eeea;
 }
 
 .tab-nav {
     display: flex;
-    gap: 6px;
-    margin-top: 20px;
-    padding: 6px;
-    background: #f1f5f9;
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
-    flex-wrap: wrap;
+    gap: 24px;
+    margin-top: 18px;
+    border-top: 1px solid var(--border-color);
+    overflow-x: auto;
 }
 
 .tab-btn {
-    flex: 1;
-    min-width: 170px;
-    padding: 11px 16px;
-    font-size: 0.93rem;
-    font-weight: 600;
+    padding: 13px 2px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    font-family: inherit;
     background: transparent;
     color: var(--text-muted);
     border: none;
-    border-radius: 8px;
+    border-bottom: 2px solid transparent;
     cursor: pointer;
-    transition: all 0.2s ease;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
 }
 
 .tab-btn:hover {
     color: var(--text-main);
-    background: rgba(255, 255, 255, 0.55);
 }
 
 .tab-btn.active {
-    background: var(--primary-gradient);
-    color: #ffffff;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25);
+    color: var(--primary);
+    font-weight: 700;
+    border-bottom-color: var(--primary);
 }
 
 .tab-panel {
     display: none;
-    animation: fadeIn 0.2s ease-out;
 }
 
 .tab-panel.active {
     display: block;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 /* =========================================================
-   카드 & 공통 폼 요소
+   카드 & 공통 입력 폼
    ========================================================= */
 .card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     padding: 24px 26px;
-    box-shadow: var(--shadow-card);
-    margin-bottom: 20px;
-    transition: box-shadow 0.2s ease;
+    margin-bottom: 16px;
 }
 
 .section-header {
@@ -178,136 +160,126 @@ body {
 }
 
 .section-header h3 {
-    font-size: 1.15rem;
+    font-size: 1.08rem;
     font-weight: 700;
     letter-spacing: -0.015em;
     color: var(--text-main);
 }
 
 .section-desc {
-    font-size: 0.86rem;
+    font-size: 0.84rem;
     color: var(--text-muted);
-    margin-top: 3px;
+    margin-top: 2px;
 }
 
 .search-box {
     display: flex;
-    gap: 10px;
+    gap: 8px;
 }
 
 .search-box input,
 .chat-form input,
 .input-row input {
     flex: 1;
-    padding: 12px 16px;
-    font-size: 0.96rem;
+    padding: 10px 14px;
+    font-size: 0.93rem;
     font-family: inherit;
-    background: var(--bg-subtle);
+    background: #ffffff;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
     color: var(--text-main);
     outline: none;
-    transition: all 0.2s ease;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .search-box input:focus,
 .chat-form input:focus,
 .input-row input:focus {
-    background: #ffffff;
     border-color: var(--primary);
-    box-shadow: var(--primary-glow);
+    box-shadow: 0 0 0 2px rgba(31, 111, 74, 0.12);
 }
 
 .search-box button,
 .chat-form button {
-    padding: 12px 24px;
-    font-size: 0.95rem;
+    padding: 10px 20px;
+    font-size: 0.92rem;
     font-weight: 600;
     font-family: inherit;
     color: #ffffff;
-    background: var(--primary-gradient);
+    background: var(--primary);
     border: none;
     border-radius: var(--radius-sm);
     cursor: pointer;
     white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
-    transition: all 0.2s ease;
+    transition: background-color 0.15s;
 }
 
 .search-box button:hover,
 .chat-form button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(34, 197, 94, 0.3);
+    background: var(--primary-hover);
 }
 
 .search-box button:disabled,
 .chat-form button:disabled {
-    background: #94a3b8;
-    box-shadow: none;
-    transform: none;
+    background: #9ca3af;
     cursor: not-allowed;
 }
 
 .secondary-btn {
-    padding: 8px 14px;
-    font-size: 0.84rem;
-    font-weight: 600;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
     font-family: inherit;
-    background: var(--bg-subtle);
-    color: var(--text-main);
+    background: #ffffff;
+    color: var(--text-secondary);
     border: 1px solid var(--border-strong);
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s;
 }
 
 .secondary-btn:hover {
-    background: #e2e8f0;
+    background: var(--bg-subtle);
 }
 
 .quick-examples {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
-    font-size: 0.83rem;
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 0.81rem;
     color: var(--text-muted);
-    font-weight: 500;
 }
 
 .chip-btn {
-    padding: 5px 12px;
-    font-size: 0.82rem;
-    font-weight: 600;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
     font-family: inherit;
     background: var(--bg-subtle);
     border: 1px solid var(--border-color);
-    border-radius: 999px;
-    color: var(--text-main);
+    border-radius: 6px;
+    color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .chip-btn:hover {
     background: var(--primary-soft);
-    color: var(--primary);
-    border-color: rgba(34, 197, 94, 0.35);
-    transform: translateY(-1px);
+    color: var(--primary-dark);
+    border-color: var(--primary-border);
 }
 
 /* =========================================================
-   상태 알림 박스 (로딩 / 오류 / 경고)
+   상태 알림 박스
    ========================================================= */
 .status-box {
-    padding: 14px 18px;
+    padding: 12px 16px;
     border-radius: var(--radius-sm);
-    margin-bottom: 18px;
-    font-size: 0.93rem;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
     font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 10px;
 }
 
 .status-box.loading {
@@ -317,9 +289,9 @@ body {
 }
 
 .status-box.error {
-    background: #fff1f2;
-    color: #be123c;
-    border: 1px solid #fecdd3;
+    background: var(--rise-bg);
+    color: var(--rise-color);
+    border: 1px solid #fecaca;
 }
 
 .status-box.warning {
@@ -333,7 +305,7 @@ body {
 }
 
 /* =========================================================
-   종목 타이틀, 주가, 출처 바, 스냅샷 카드
+   종목 타이틀, 주가, 출처, 포지션, 스냅샷 그리드
    ========================================================= */
 .stock-title-row {
     display: flex;
@@ -343,25 +315,26 @@ body {
     gap: 12px;
     padding-bottom: 16px;
     border-bottom: 1px solid var(--border-color);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 }
 
 .stock-title-row h2 {
     display: inline-block;
-    font-size: 1.55rem;
-    font-weight: 800;
+    font-size: 1.45rem;
+    font-weight: 700;
     letter-spacing: -0.02em;
     margin-right: 8px;
 }
 
 .code-badge {
     display: inline-block;
-    padding: 3px 10px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    background: #f1f5f9;
+    padding: 2px 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: var(--bg-subtle);
     color: var(--text-muted);
-    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
     vertical-align: middle;
 }
 
@@ -369,20 +342,20 @@ body {
     text-align: right;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .price-main {
-    font-size: 1.65rem;
-    font-weight: 800;
+    font-size: 1.55rem;
+    font-weight: 700;
     letter-spacing: -0.02em;
 }
 
 .change-rate {
-    font-size: 0.98rem;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
 }
 
 .is-rise {
@@ -397,17 +370,17 @@ body {
 
 .is-flat {
     color: var(--text-muted);
-    background: #f1f5f9;
+    background: var(--bg-subtle);
 }
 
 .source-bar {
     background: var(--bg-subtle);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 9px 14px;
-    font-size: 0.81rem;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.79rem;
     color: var(--text-muted);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -419,66 +392,54 @@ body {
     color: var(--primary);
     font-weight: 600;
     text-decoration: none;
-    padding: 2px 8px;
-    border-radius: 6px;
-    background: var(--primary-soft);
 }
 
 .source-bar a:hover {
-    background: var(--primary-soft-hover);
+    text-decoration: underline;
 }
 
 .snapshot-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
-    gap: 12px;
+    gap: 10px;
 }
 
 .metric-item {
-    background: var(--bg-subtle);
+    background: #fafcfa;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 14px 16px;
-    transition: all 0.18s ease;
-}
-
-.metric-item:hover {
-    background: #ffffff;
-    border-color: rgba(34, 197, 94, 0.25);
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-    transform: translateY(-1px);
+    border-radius: 8px;
+    padding: 12px 14px;
 }
 
 .metric-label {
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.78rem;
+    font-weight: 500;
     color: var(--text-muted);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .metric-value {
-    font-size: 1.08rem;
+    font-size: 1.04rem;
     font-weight: 700;
     color: var(--text-main);
-    letter-spacing: -0.01em;
 }
 
 .metric-hint {
-    font-size: 0.74rem;
-    color: #94a3b8;
-    margin-top: 4px;
-    line-height: 1.35;
+    font-size: 0.72rem;
+    color: #9ca3af;
+    margin-top: 3px;
+    line-height: 1.3;
 }
 
 /* =========================================================
-   실적 표, 리포트, 뉴스 리스트
+   표, 리포트, 뉴스 리스트
    ========================================================= */
 .legend-badge,
 .count-badge {
-    font-size: 0.79rem;
-    padding: 4px 11px;
-    border-radius: 999px;
-    font-weight: 700;
+    font-size: 0.76rem;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-weight: 600;
 }
 
 .consensus-badge {
@@ -487,37 +448,38 @@ body {
 }
 
 .count-badge {
-    background: #f1f5f9;
+    background: var(--bg-subtle);
     color: var(--text-muted);
+    border: 1px solid var(--border-color);
 }
 
 .details-toggle-row {
-    margin-top: 18px;
+    margin-top: 16px;
     text-align: center;
 }
 
 .details-box {
     margin-top: 16px;
-    border-top: 1px dashed var(--border-strong);
+    border-top: 1px solid var(--border-color);
     padding-top: 8px;
 }
 
 .table-wrapper {
     overflow-x: auto;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 .finance-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     text-align: right;
 }
 
 .finance-table th,
 .finance-table td {
-    padding: 11px 14px;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--border-color);
     white-space: nowrap;
 }
@@ -527,7 +489,7 @@ body {
 }
 
 .finance-table tbody tr:hover {
-    background: #f8fafc;
+    background: #fafcfa;
 }
 
 .finance-table th:first-child,
@@ -538,65 +500,63 @@ body {
 }
 
 .finance-table thead th {
-    background: #f8fafc;
+    background: var(--bg-subtle);
     color: var(--text-muted);
-    font-weight: 700;
-    font-size: 0.84rem;
+    font-weight: 600;
+    font-size: 0.82rem;
 }
 
 .consensus-col {
-    background-color: #fffbeb;
+    background-color: #fefce8;
 }
 
 .e-tag {
     display: inline-block;
     margin-left: 4px;
-    padding: 1px 6px;
-    font-size: 0.7rem;
-    font-weight: 800;
+    padding: 1px 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
     background: var(--consensus-bg);
     color: var(--consensus-text);
-    border-radius: 4px;
+    border-radius: 3px;
 }
 
 .num-pos {
     color: var(--rise-color);
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .num-neg {
     color: var(--fall-color);
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .news-list {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .news-item {
-    padding: 14px 16px;
-    background: var(--bg-subtle);
+    padding: 12px 14px;
+    background: #ffffff;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    transition: all 0.15s ease;
+    border-radius: 8px;
+    transition: border-color 0.15s;
 }
 
 .news-item:hover {
-    background: #ffffff;
-    border-color: rgba(34, 197, 94, 0.35);
-    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
+    border-color: var(--primary-border);
 }
 
 .news-title {
     display: block;
-    font-size: 0.96rem;
+    font-size: 0.93rem;
     font-weight: 600;
     color: var(--text-main);
     text-decoration: none;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .news-title:hover {
@@ -605,31 +565,30 @@ body {
 }
 
 .news-desc {
-    font-size: 0.86rem;
+    font-size: 0.84rem;
     color: var(--text-muted);
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }
 
 .news-meta {
-    font-size: 0.77rem;
-    color: #94a3b8;
-    font-weight: 500;
+    font-size: 0.76rem;
+    color: #9ca3af;
 }
 
 /* =========================================================
-   채팅 UI & 마크다운 렌더링 스타일
+   채팅 UI & 마크다운 타이포그래피
    ========================================================= */
 .chat-log {
-    background: var(--bg-subtle);
+    background: #fafcfa;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 18px;
+    border-radius: 10px;
+    padding: 16px;
     height: 380px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
 .chat-log-tall {
@@ -641,15 +600,15 @@ body {
 }
 
 .chat-log::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #d1d5db;
     border-radius: 999px;
 }
 
 .chat-msg {
     max-width: 84%;
-    padding: 13px 18px;
-    border-radius: 14px;
-    font-size: 0.94rem;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.92rem;
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-word;
@@ -657,10 +616,9 @@ body {
 
 .chat-msg.user {
     align-self: flex-end;
-    background: var(--primary-gradient);
+    background: var(--primary);
     color: #ffffff;
-    border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.18);
+    border-bottom-right-radius: 3px;
 }
 
 .chat-msg.bot {
@@ -668,13 +626,12 @@ body {
     background: #ffffff;
     color: var(--text-main);
     border: 1px solid var(--border-color);
-    border-bottom-left-radius: 4px;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+    border-bottom-left-radius: 3px;
 }
 
 .chat-msg.bot.markdown-body {
     white-space: normal;
-    max-width: 94%;
+    max-width: 95%;
 }
 
 .chat-msg.loading-msg {
@@ -684,7 +641,7 @@ body {
 
 .chat-form {
     display: flex;
-    gap: 10px;
+    gap: 8px;
 }
 
 .markdown-body h1,
@@ -692,7 +649,7 @@ body {
 .markdown-body h3,
 .markdown-body h4 {
     margin-top: 16px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: 700;
     color: var(--text-main);
     line-height: 1.4;
@@ -705,9 +662,9 @@ body {
 }
 
 .markdown-body h3 {
-    font-size: 1.03rem;
+    font-size: 0.98rem;
     border-left: 3px solid var(--primary);
-    padding-left: 10px;
+    padding-left: 9px;
 }
 
 .markdown-body p {
@@ -720,54 +677,54 @@ body {
 
 .markdown-body ul,
 .markdown-body ol {
-    margin: 6px 0 12px 20px;
+    margin: 6px 0 10px 20px;
 }
 
 .markdown-body li {
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 
 .markdown-body strong {
-    color: #0f172a;
+    color: #111827;
     font-weight: 700;
 }
 
 .markdown-body hr {
     border: none;
     border-top: 1px solid var(--border-color);
-    margin: 14px 0;
+    margin: 12px 0;
 }
 
 .markdown-body blockquote {
-    border-left: 3px solid #94a3b8;
-    padding-left: 12px;
+    border-left: 3px solid var(--border-strong);
+    padding-left: 10px;
     color: var(--text-muted);
     margin: 8px 0;
 }
 
 .markdown-body code {
-    background: #f1f5f9;
-    padding: 2px 6px;
+    background: var(--bg-subtle);
+    padding: 2px 5px;
     border-radius: 4px;
-    font-size: 0.86em;
+    font-size: 0.85em;
 }
 
 .markdown-body table {
     width: 100%;
     border-collapse: collapse;
     margin: 10px 0;
-    font-size: 0.86rem;
+    font-size: 0.85rem;
 }
 
 .markdown-body th,
 .markdown-body td {
     border: 1px solid var(--border-color);
-    padding: 7px 10px;
+    padding: 6px 9px;
     text-align: left;
 }
 
 .markdown-body th {
-    background: #f8fafc;
+    background: var(--bg-subtle);
     font-weight: 600;
 }
 
@@ -775,60 +732,72 @@ body {
    리밸런싱 & 차트 레이아웃
    ========================================================= */
 .rationale-box {
-    background: #f8fafc;
-    border-left: 4px solid var(--primary);
-    padding: 14px 18px;
+    background: var(--bg-subtle);
+    border-left: 3px solid var(--primary);
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 0.91rem;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+}
+
+.evidence-bar {
+    background: var(--primary-soft);
+    border: 1px solid var(--primary-border);
+    color: var(--primary-dark);
+    padding: 10px 14px;
     border-radius: 8px;
-    font-size: 0.93rem;
-    color: var(--text-main);
-    margin-bottom: 18px;
+    font-size: 0.89rem;
+    font-weight: 600;
+    margin-bottom: 14px;
 }
 
 .portfolio-compare-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 14px;
+    gap: 12px;
 }
 
 .compare-card {
-    background: var(--bg-subtle);
+    background: #fafcfa;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 18px;
+    border-radius: 10px;
+    padding: 16px;
 }
 
 .compare-card.highlight {
-    background: linear-gradient(180deg, var(--primary-soft) 0%, #ffffff 100%);
+    background: var(--primary-soft);
     border: 1px solid var(--primary-border);
-    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.08);
 }
 
 .compare-card h4 {
-    font-size: 0.98rem;
+    font-size: 0.94rem;
     font-weight: 700;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     color: var(--text-main);
 }
 
 .compare-stat {
     display: flex;
     justify-content: space-between;
-    font-size: 0.88rem;
-    margin-bottom: 7px;
+    font-size: 0.86rem;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
 }
 
 .compare-stat strong {
     font-weight: 700;
+    color: var(--text-main);
 }
 
 .charts-two-col {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: 20px;
+    gap: 16px;
 }
 
 .chart-title {
-    font-size: 1rem;
+    font-size: 0.98rem;
     font-weight: 700;
     margin-bottom: 12px;
     color: var(--text-main);
@@ -836,17 +805,77 @@ body {
 
 .chart-box {
     position: relative;
-    height: 280px;
+    height: 270px;
     width: 100%;
 }
 
 .chart-box.chart-tall {
-    height: 340px;
+    height: 330px;
+}
+
+.chart-guide {
+    margin-top: 12px;
+    padding: 11px 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.chart-guide strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--text-main);
+}
+
+.chart-guide p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.chart-guide ul {
+    margin: 4px 0 0 18px;
+    color: var(--text-muted);
+}
+
+.chart-guide li {
+    margin-bottom: 2px;
 }
 
 /* =========================================================
-   자동완성 드롭다운
+   자동완성 & 내 매수가 입력
    ========================================================= */
+.buy-price-input {
+    max-width: 170px;
+    flex: 0 0 auto !important;
+}
+
+.position-bar {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.89rem;
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.position-bar.is-profit {
+    background: var(--rise-bg);
+    color: var(--rise-color);
+    border: 1px solid #fecaca;
+}
+
+.position-bar.is-loss {
+    background: var(--fall-bg);
+    color: var(--fall-color);
+    border: 1px solid #bfdbfe;
+}
+
 .autocomplete-wrap {
     position: relative;
     flex: 1;
@@ -859,16 +888,16 @@ body {
 
 .autocomplete-list {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 4px);
     left: 0;
     right: 0;
     background: var(--bg-card);
     border: 1px solid var(--border-strong);
-    border-radius: 10px;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
     list-style: none;
     z-index: 50;
-    max-height: 260px;
+    max-height: 250px;
     overflow-y: auto;
 }
 
@@ -876,11 +905,10 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 11px 16px;
+    padding: 10px 14px;
     cursor: pointer;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 0.92rem;
-    transition: background 0.12s ease;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
 }
 
 .autocomplete-item:last-child {
@@ -897,9 +925,8 @@ body {
 }
 
 .ac-meta {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--text-muted);
-    font-weight: 500;
 }
 
 @media (max-width: 640px) {
@@ -907,91 +934,13 @@ body {
     .chat-form {
         flex-direction: column;
     }
+    .buy-price-input {
+        max-width: 100%;
+    }
     .price-display {
         text-align: left;
     }
     .charts-two-col {
         grid-template-columns: 1fr;
-    }
-}
-
-/* =========================================================
-   탭 2 초보자 차트 가이드 & 배분 예시 바
-   ========================================================= */
-.evidence-bar {
-    background: var(--primary-soft);
-    border: 1px solid var(--primary-border);
-    color: var(--primary-dark);
-    padding: 12px 16px;
-    border-radius: 10px;
-    font-size: 0.92rem;
-    font-weight: 600;
-    margin-bottom: 16px;
-}
-
-.chart-guide {
-    margin-top: 14px;
-    padding: 12px 14px;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    font-size: 0.84rem;
-    color: var(--text-main);
-    line-height: 1.55;
-}
-
-.chart-guide strong {
-    display: block;
-    margin-bottom: 4px;
-    color: var(--primary-dark);
-}
-
-.chart-guide p {
-    margin: 0;
-    color: var(--text-muted);
-}
-
-.chart-guide ul {
-    margin: 4px 0 0 18px;
-    color: var(--text-muted);
-}
-
-.chart-guide li {
-    margin-bottom: 3px;
-}
-
-/* 내 매수가 입력 & 포지션 진단 바 */
-.buy-price-input {
-    max-width: 175px;
-    flex: 0 0 auto !important;
-}
-
-.position-bar {
-    padding: 11px 16px;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-}
-
-.position-bar.is-profit {
-    background: var(--rise-bg);
-    color: var(--rise-color);
-    border: 1px solid #fecdd3;
-}
-
-.position-bar.is-loss {
-    background: var(--fall-bg);
-    color: var(--fall-color);
-    border: 1px solid #bfdbfe;
-}
-
-@media (max-width: 640px) {
-    .buy-price-input {
-        max-width: 100%;
     }
 }
