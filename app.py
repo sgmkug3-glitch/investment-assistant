@@ -90,6 +90,7 @@ EXPERT_ANALYSIS_GUIDE = """당신은 사용자 개인(1인 전용)의 투자 의
    예) "PER 4.9배(현재 버는 돈 속도로 약 4.9년이면 회사 몸값을 번다는 뜻의 저평가 구간)"
 4. 근거 데이터에 없는 수치는 절대 지어내지 말고, 추정치(is_consensus: true)는 반드시 '추정치(E)'로 명시하세요.
 5. 각 항목은 군더더기 없이 핵심 수치와 판단 이유만 2~4줄로 명확하게 정리하세요.
+6. **[내 매수 포지션]이 함께 제공된 경우**: 사용자의 매수가(평단가), 현재 손익률, 본전 회복까지 필요한 상승률, 그리고 증권사 목표주가·실적을 비교하여 **해당 평단가 보유자 기준의 맞춤형 전략(물타기/버티기/익절/손절 교체 기준)**을 결론 첫 줄부터 명확히 제시하세요.
 
 [분석 필수 목차]
 ### 결론 및 핵심 전략 (단도직입 요약)
@@ -169,6 +170,36 @@ def _build_quant_scorecard(stock_data: dict) -> dict:
     }
 
 
+def _build_my_position(stock_data: dict, buy_price_raw) -> dict | None:
+    """사용자가 입력한 매수가(평단가) 기준으로 현재 손익률과 본전 회복 필요 상승률을 계산한다."""
+    if buy_price_raw in (None, "", 0):
+        return None
+    try:
+        buy_price = float(str(buy_price_raw).replace(",", "").strip())
+    except ValueError:
+        return None
+    if buy_price <= 0:
+        return None
+
+    curr = (stock_data.get("snapshot") or {}).get("current_price")
+    if not curr or curr <= 0:
+        return None
+
+    pnl_pct = round((curr - buy_price) / buy_price * 100, 2)
+    breakeven_gain_pct = round((buy_price - curr) / curr * 100, 2) if curr < buy_price else 0.0
+    target_price = (stock_data.get("consensus") or {}).get("target_price")
+    target_vs_buy_pct = round((target_price - buy_price) / buy_price * 100, 2) if target_price else None
+
+    return {
+        "buy_price": buy_price,
+        "current_price": curr,
+        "currency": stock_data.get("currency", "KRW"),
+        "profit_loss_pct": pnl_pct,
+        "breakeven_gain_pct": breakeven_gain_pct,
+        "target_vs_buy_pct": target_vs_buy_pct,
+    }
+
+
 @app.route('/api/chat/analysis', methods=['POST'])
 def chat_analysis():
     payload = request.get_json(silent=True) or {}
@@ -176,6 +207,7 @@ def chat_analysis():
     question = str(payload.get('question', '')).strip()
     conversation_id = str(payload.get('conversation_id', '')).strip()
     mode = str(payload.get('mode', 'init')).strip()
+    buy_price_raw = payload.get('buy_price')
 
     logger.info(f"[REQUEST] POST /api/chat/analysis code={code}, mode={mode}")
 
@@ -236,14 +268,17 @@ def chat_analysis():
             "news": [{"title": n.get("title"), "date": n.get("published")} for n in (sd.get("news") or [])[:4]],
         }
 
+    my_position = _build_my_position(stock_data, buy_price_raw)
     scorecard = _build_quant_scorecard(stock_data)
     scorecard_json = json.dumps(scorecard, ensure_ascii=False, separators=(',', ':'))
     context_json = json.dumps(_compact_context_for_ai(stock_data), ensure_ascii=False, separators=(',', ':'))
+    position_block = f"\n\n[내 매수 포지션]\n{json.dumps(my_position, ensure_ascii=False, separators=(',', ':'))}" if my_position else ""
     user_request = question if question else f"{stock_data['name']}({code}) 종목에 대한 직접적인 전략 결론과 핵심 분석을 작성해 주세요."
     full_query = (
         f"{EXPERT_ANALYSIS_GUIDE}\n\n"
         f"[정량 스코어카드]\n"
-        f"{scorecard_json}\n\n"
+        f"{scorecard_json}"
+        f"{position_block}\n\n"
         f"[수집된 종목 근거 데이터 (JSON)]\n"
         f"{context_json}\n\n"
         f"[요청 사항]\n"
@@ -260,6 +295,7 @@ def chat_analysis():
             "answer": dify_res["answer"],
             "conversation_id": dify_res["conversation_id"],
             "stock_data": stock_data,
+            "my_position": my_position,
         }), 200
     except RuntimeError as exc:
         logger.error(f"[ERROR] 탭1 Dify 호출 실패 (code={code}): {exc}")

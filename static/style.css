@@ -959,3 +959,39 @@ body {
 .chart-guide li {
     margin-bottom: 3px;
 }
+
+/* 내 매수가 입력 & 포지션 진단 바 */
+.buy-price-input {
+    max-width: 175px;
+    flex: 0 0 auto !important;
+}
+
+.position-bar {
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.position-bar.is-profit {
+    background: var(--rise-bg);
+    color: var(--rise-color);
+    border: 1px solid #fecdd3;
+}
+
+.position-bar.is-loss {
+    background: var(--fall-bg);
+    color: var(--fall-color);
+    border: 1px solid #bfdbfe;
+}
+
+@media (max-width: 640px) {
+    .buy-price-input {
+        max-width: 100%;
+    }
+}

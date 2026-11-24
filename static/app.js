@@ -150,6 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // =========================================================
     const tab1SearchForm = document.getElementById("tab1-search-form");
     const tab1CodeInput = document.getElementById("tab1-code-input");
+    const tab1BuyPriceInput = document.getElementById("tab1-buy-price-input");
     const tab1AnalyzeBtn = document.getElementById("tab1-analyze-btn");
     const tab1Loading = document.getElementById("tab1-loading");
     const tab1Warning = document.getElementById("tab1-warning");
@@ -192,10 +193,35 @@ document.addEventListener("DOMContentLoaded", () => {
         tab1CurrentCode = "";
         tab1ConversationId = "";
         tab1CodeInput.value = "";
+        tab1BuyPriceInput.value = "";
         tab1Warning.classList.add("hidden");
         tab1ResultArea.classList.add("hidden");
         tab1ChatLog.innerHTML = "";
     });
+
+    function renderMyPositionBar(stockData, buyPriceRaw) {
+        const bar = document.getElementById("tab1-my-position-bar");
+        bar.className = "position-bar hidden";
+        bar.textContent = "";
+
+        const cleaned = String(buyPriceRaw || "").replace(/,/g, "").trim();
+        const buyPrice = Number(cleaned);
+        const curr = stockData.snapshot ? stockData.snapshot.current_price : null;
+        if (!cleaned || Number.isNaN(buyPrice) || buyPrice <= 0 || !curr || curr <= 0) {
+            return null;
+        }
+
+        const currency = stockData.currency || "KRW";
+        const pnlPct = ((curr - buyPrice) / buyPrice) * 100;
+        const breakevenPct = curr < buyPrice ? ((buyPrice - curr) / curr) * 100 : 0;
+
+        bar.classList.remove("hidden");
+        bar.classList.add(pnlPct >= 0 ? "is-profit" : "is-loss");
+        const pnlText = `${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%`;
+        const extraText = breakevenPct > 0 ? ` | 본전 회복 필요 상승률: +${breakevenPct.toFixed(1)}%` : " | 현재 수익 구간";
+        bar.textContent = `내 매수가: ${formatPrice(buyPrice, currency)} | 현재 손익률: ${pnlText}${extraText}`;
+        return buyPrice;
+    }
 
     async function analyzeStock(code) {
         hideGlobalError();
@@ -207,6 +233,8 @@ document.addEventListener("DOMContentLoaded", () => {
             showGlobalError(msg);
             return;
         }
+
+        const buyPriceRaw = tab1BuyPriceInput.value.trim();
 
         tab1CurrentCode = code;
         tab1ConversationId = "";
@@ -231,15 +259,18 @@ document.addEventListener("DOMContentLoaded", () => {
             tab1CurrentCode = stockData.code || code;
             tab1CodeInput.value = tab1CurrentCode;
             renderTab1Evidence(stockData);
+            const validBuyPrice = renderMyPositionBar(stockData, buyPriceRaw);
             console.log(`[COLLECT]   종목 근거 데이터 수집 완료 (${stockData.name})`);
             tab1Loading.classList.add("hidden");
             tab1ResultArea.classList.remove("hidden");
 
-            // 2단계: 수집된 근거를 그대로 넘겨 Dify 전문가 리포트 생성
+            // 2단계: 수집된 근거(+ 내 매수가)를 넘겨 Dify 전문가 리포트 생성
             tab1ChatLog.innerHTML = "";
             const loadingMsg = appendChatMessage(
                 tab1ChatLog,
-                "수집된 근거를 바탕으로 전문가 AI 리포트를 작성하고 있습니다...",
+                validBuyPrice
+                    ? `내 매수가(${formatPrice(validBuyPrice, stockData.currency)}) 기준으로 맞춤형 AI 리포트를 작성하고 있습니다...`
+                    : "수집된 근거를 바탕으로 전문가 AI 리포트를 작성하고 있습니다...",
                 "bot",
                 true
             );
@@ -251,6 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     code: tab1CurrentCode,
                     mode: "init",
                     stock_data: stockData,
+                    buy_price: validBuyPrice,
                 }),
             });
             const aiData = await aiRes.json();
