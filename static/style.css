@@ -813,6 +813,15 @@ body {
     height: 330px;
 }
 
+.chart-box.chart-mini {
+    height: 210px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    background: #fafcfa;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
 .chart-guide {
     margin-top: 12px;
     padding: 11px 14px;

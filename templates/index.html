@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나의 투자도우미 (My Investment Assistant)</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20261124k">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20261124l">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
@@ -110,6 +110,9 @@
                     <div id="tab1-details-box" class="details-box hidden">
                         <div id="tab1-annual-wrap">
                             <h4 class="chart-title" style="margin-top: 16px;">기업실적분석 (연간 추이)</h4>
+                            <div class="chart-box chart-mini">
+                                <canvas id="tab1-annual-chart"></canvas>
+                            </div>
                             <div class="table-wrapper">
                                 <table class="finance-table">
                                     <thead id="tab1-finance-thead"></thead>
@@ -120,6 +123,9 @@
 
                         <div id="tab1-quarter-wrap" class="hidden">
                             <h4 class="chart-title" style="margin-top: 20px;">최근 분기 실적 추이</h4>
+                            <div class="chart-box chart-mini">
+                                <canvas id="tab1-quarter-chart"></canvas>
+                            </div>
                             <div class="table-wrapper">
                                 <table class="finance-table">
                                     <thead id="tab1-quarter-thead"></thead>
@@ -390,6 +396,6 @@
         </section>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=20261124j"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=20261124l"></script>
 </body>
 </html>

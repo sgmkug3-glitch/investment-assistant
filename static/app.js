@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let tab3LatestIndicators = null;
 
     // Chart.js 인스턴스 관리 (재계산 시 destroy)
+    let tab1AnnualChart = null;
+    let tab1QuarterChart = null;
     let weightChart = null;
     let frontierChart = null;
     let techPriceChart = null;
@@ -477,8 +479,88 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
+        function renderFinanceMiniChart(canvasId, prevChart, rows) {
+            if (prevChart) prevChart.destroy();
+            if (!rows || rows.length === 0 || typeof Chart === "undefined") return null;
+
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return null;
+
+            const maxRev = Math.max(...rows.map((r) => Math.abs(r.revenue || 0)), 0);
+            const useTrillion = maxRev >= 1e12;
+            const divisor = useTrillion ? 1e12 : 1e8;
+            const unitLabel = useTrillion ? "조 원" : "억 원";
+
+            const labels = rows.map((r) => `${r.period}${r.is_consensus ? " (E)" : ""}`);
+            const revenues = rows.map((r) => (r.revenue !== null ? Number((r.revenue / divisor).toFixed(1)) : null));
+            const opIncomes = rows.map((r) => (r.operating_income !== null ? Number((r.operating_income / divisor).toFixed(1)) : null));
+            const opMargins = rows.map((r) => r.operating_margin);
+
+            const revColors = rows.map((r) => (r.is_consensus ? "rgba(148, 201, 169, 0.45)" : "rgba(148, 201, 169, 0.85)"));
+            const opColors = rows.map((r) => (r.is_consensus ? "rgba(31, 111, 74, 0.45)" : "rgba(31, 111, 74, 0.9)"));
+
+            return new Chart(canvas.getContext("2d"), {
+                type: "bar",
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: `매출액 (${unitLabel})`,
+                            data: revenues,
+                            backgroundColor: revColors,
+                            borderRadius: 4,
+                            yAxisID: "y",
+                        },
+                        {
+                            label: `영업이익 (${unitLabel})`,
+                            data: opIncomes,
+                            backgroundColor: opColors,
+                            borderRadius: 4,
+                            yAxisID: "y",
+                        },
+                        {
+                            type: "line",
+                            label: "영업이익률 (%)",
+                            data: opMargins,
+                            borderColor: "#d97706",
+                            backgroundColor: "#d97706",
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            tension: 0.2,
+                            yAxisID: "y1",
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: "index", intersect: false },
+                    plugins: {
+                        legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+                    },
+                    scales: {
+                        y: {
+                            type: "linear",
+                            position: "left",
+                            title: { display: true, text: unitLabel, font: { size: 11 } },
+                            grid: { color: "rgba(0,0,0,0.04)" },
+                        },
+                        y1: {
+                            type: "linear",
+                            position: "right",
+                            title: { display: true, text: "이익률 (%)", font: { size: 11 } },
+                            grid: { drawOnChartArea: false },
+                        },
+                    },
+                },
+            });
+        }
+
         fillFinanceTable("tab1-finance-thead", "tab1-finance-tbody", "tab1-annual-wrap", data.financials || []);
+        tab1AnnualChart = renderFinanceMiniChart("tab1-annual-chart", tab1AnnualChart, data.financials || []);
+
         fillFinanceTable("tab1-quarter-thead", "tab1-quarter-tbody", "tab1-quarter-wrap", data.quarterly_financials || []);
+        tab1QuarterChart = renderFinanceMiniChart("tab1-quarter-chart", tab1QuarterChart, data.quarterly_financials || []);
 
         // 최근 5거래일 수급 동향 표
         const trendWrap = document.getElementById("tab1-trend-wrap");
