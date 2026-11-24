@@ -6,8 +6,6 @@ from dotenv import load_dotenv
 
 from collector import collect_stock_data, resolve_stock_code, search_stocks, validate_stock_code
 from dify_client import ask_dify_chatbot
-from portfolio import calculate_rebalancing
-from technical import calculate_technical_indicators
 
 # .env 환경변수 로드
 load_dotenv()
@@ -220,9 +218,27 @@ def chat_analysis():
             logger.error(f"[ERROR] 종목 근거 데이터 수집 실패 (code={code}): {exc}", exc_info=True)
             return jsonify({"error": str(exc)}), 400
 
+    def _compact_context_for_ai(sd: dict) -> dict:
+        """Dify 토큰 및 추론 속도를 위해 불필요한 URL/중복 필드를 제거한 경량 근거 JSON을 생성한다."""
+        dart_raw = sd.get("dart") or {}
+        return {
+            "code": sd.get("code"),
+            "name": sd.get("name"),
+            "type": sd.get("stock_type"),
+            "currency": sd.get("currency"),
+            "snapshot": sd.get("snapshot"),
+            "consensus": sd.get("consensus"),
+            "annual_financials": sd.get("financials"),
+            "quarterly_financials": (sd.get("quarterly_financials") or [])[-2:],
+            "peers": sd.get("peers"),
+            "researches": [{"broker": r.get("broker"), "title": r.get("title"), "date": r.get("date")} for r in (sd.get("researches") or [])[:3]],
+            "dart_disclosures": [{"title": d.get("title"), "date": d.get("date")} for d in (dart_raw.get("disclosures") or [])[:4]] if dart_raw else [],
+            "news": [{"title": n.get("title"), "date": n.get("published")} for n in (sd.get("news") or [])[:4]],
+        }
+
     scorecard = _build_quant_scorecard(stock_data)
-    scorecard_json = json.dumps(scorecard, ensure_ascii=False, indent=2)
-    context_json = json.dumps(stock_data, ensure_ascii=False, indent=2)
+    scorecard_json = json.dumps(scorecard, ensure_ascii=False, separators=(',', ':'))
+    context_json = json.dumps(_compact_context_for_ai(stock_data), ensure_ascii=False, separators=(',', ':'))
     user_request = question if question else f"{stock_data['name']}({code}) 종목에 대한 직접적인 전략 결론과 핵심 분석을 작성해 주세요."
     full_query = (
         f"{EXPERT_ANALYSIS_GUIDE}\n\n"
@@ -274,6 +290,7 @@ def rebalance():
     logger.info(f"[REQUEST] POST /api/rebalance codes={raw_codes}")
 
     try:
+        from portfolio import calculate_rebalancing
         resolved_codes = [resolve_stock_code(c) for c in raw_codes]
         result = calculate_rebalancing(resolved_codes)
         return jsonify(result), 200
@@ -292,6 +309,7 @@ def technical():
     logger.info(f"[REQUEST] POST /api/technical code={raw_code}")
 
     try:
+        from technical import calculate_technical_indicators
         code = resolve_stock_code(raw_code)
         result = calculate_technical_indicators(code)
         return jsonify(result), 200
@@ -321,6 +339,7 @@ def chat_technical():
     # 프론트에서 전달받은 계산 숫자가 없으면 백엔드에서 직접 계산하여 주입
     if not isinstance(indicators, dict) or not indicators:
         try:
+            from technical import calculate_technical_indicators
             indicators = calculate_technical_indicators(code).get("latest", {})
         except (ValueError, RuntimeError) as exc:
             return jsonify({"error": str(exc)}), 400
