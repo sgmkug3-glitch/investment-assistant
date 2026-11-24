@@ -179,4 +179,9 @@ def calculate_rebalancing(raw_codes: List[str], num_simulations: int = 3000) -> 
         "asset_stats": asset_stats,
         "frontier_points": frontier_points,
         "rationale": rationale,
+        "source": {
+            "provider": "FinanceDataReader (KRX/네이버 일별 종가)",
+            "period": f"{prices_df.index[0].strftime('%Y-%m-%d')} ~ {prices_df.index[-1].strftime('%Y-%m-%d')}",
+            "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        },
     }

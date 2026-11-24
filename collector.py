@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -356,5 +357,12 @@ def collect_stock_data(code: str) -> Dict[str, Any]:
         "snapshot": snapshot,
         "financials": financials,
         "news": news,
+        "sources": {
+            "market": "네이버 증권 시세·투자정보 (stock.naver.com)",
+            "financials": "네이버 증권 기업실적분석 (stock.naver.com)",
+            "news": "Serper Google News (google.serper.dev)",
+            "naver_url": f"https://stock.naver.com/domestic/stock/{code}/price",
+            "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        },
         "errors": errors,
     }

@@ -73,7 +73,10 @@ def ask_dify_chatbot(
         logger.error(
             f"[ERROR] Dify API 호출 실패 (bot={bot_type}, status={response.status_code}, detail={detail})"
         )
-        raise RuntimeError(f"Dify 챗봇 호출에 실패했습니다. (HTTP {response.status_code})")
+        msg = f"Dify 챗봇 호출에 실패했습니다. (HTTP {response.status_code})"
+        if detail:
+            msg += f" - {detail}"
+        raise RuntimeError(msg)
 
     try:
         data = response.json()

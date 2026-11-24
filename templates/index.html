@@ -6,6 +6,8 @@
     <title>나의 투자도우미 (My Investment Assistant)</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -36,13 +38,13 @@
             <div class="card">
                 <div class="section-header">
                     <div>
-                        <h3>종목 심층분석 채팅</h3>
-                        <p class="section-desc">네이버 금융 정예 지표 + Serper 최신 뉴스를 먼저 수집해 Dify 챗봇에게 근거로 전달합니다.</p>
+                        <h3>종목 심층분석 &amp; AI 채팅</h3>
+                        <p class="section-desc">종목코드를 조회하면 네이버 금융 지표 + Serper 뉴스를 수집하고, 전문가 프롬프트로 종합 분석을 먼저 생성합니다.</p>
                     </div>
-                    <button type="button" id="tab1-reset-btn" class="secondary-btn">새 대화</button>
+                    <button type="button" id="tab1-reset-btn" class="secondary-btn">초기화</button>
                 </div>
 
-                <div class="input-row">
+                <form id="tab1-search-form" class="search-box">
                     <input
                         type="text"
                         id="tab1-code-input"
@@ -50,33 +52,83 @@
                         maxlength="6"
                         autocomplete="off"
                     >
-                    <div class="quick-examples inline-chips">
-                        <button type="button" class="chip-btn tab1-chip" data-code="000660">SK하이닉스</button>
-                        <button type="button" class="chip-btn tab1-chip" data-code="005930">삼성전자</button>
-                        <button type="button" class="chip-btn tab1-chip" data-code="035420">NAVER</button>
-                    </div>
-                </div>
-
-                <!-- 수집된 근거 요약 바 -->
-                <div id="tab1-evidence-box" class="evidence-bar hidden"></div>
-
-                <!-- 채팅 로그 -->
-                <div id="tab1-chat-log" class="chat-log">
-                    <div class="chat-msg bot">
-                        종목코드를 입력하고 질문을 남겨주세요. (예: "현재 PER과 최근 3년 영업이익 흐름, 최신 뉴스를 종합해 분석해줘")
-                    </div>
-                </div>
-
-                <!-- 질문 입력 폼 -->
-                <form id="tab1-chat-form" class="chat-form">
-                    <input
-                        type="text"
-                        id="tab1-question-input"
-                        placeholder="이 종목에 대해 궁금한 점을 입력하세요..."
-                        autocomplete="off"
-                    >
-                    <button type="submit" id="tab1-send-btn">질문하기</button>
+                    <button type="submit" id="tab1-analyze-btn">조회 및 AI 분석</button>
                 </form>
+
+                <div class="quick-examples">
+                    <span>빠른 조회:</span>
+                    <button type="button" class="chip-btn tab1-chip" data-code="000660">SK하이닉스 (000660)</button>
+                    <button type="button" class="chip-btn tab1-chip" data-code="005930">삼성전자 (005930)</button>
+                    <button type="button" class="chip-btn tab1-chip" data-code="035420">NAVER (035420)</button>
+                </div>
+            </div>
+
+            <div id="tab1-loading" class="status-box loading hidden">
+                종목 데이터를 수집하고 전문가 AI 리포트를 생성하고 있습니다...
+            </div>
+            <div id="tab1-warning" class="status-box warning hidden"></div>
+
+            <!-- 수집된 근거 리포트 & 채팅 영역 -->
+            <div id="tab1-result-area" class="hidden">
+                <!-- 1. 수집된 스냅샷 투자정보 카드 -->
+                <div class="card">
+                    <div class="stock-title-row">
+                        <div>
+                            <h2 id="tab1-stock-name">-</h2>
+                            <span id="tab1-code-badge" class="code-badge">000000</span>
+                        </div>
+                        <div class="price-display">
+                            <span id="tab1-current-price" class="price-main">-</span>
+                            <span id="tab1-change-rate" class="change-rate">-</span>
+                        </div>
+                    </div>
+
+                    <div id="tab1-source-bar" class="source-bar"></div>
+
+                    <div id="tab1-snapshot-grid" class="snapshot-grid"></div>
+
+                    <div class="details-toggle-row">
+                        <button type="button" id="tab1-details-toggle" class="secondary-btn">
+                            실적 표 &amp; 최신 뉴스 펼쳐보기 ▾
+                        </button>
+                    </div>
+
+                    <div id="tab1-details-box" class="details-box hidden">
+                        <h4 class="chart-title" style="margin-top: 16px;">기업실적분석 (연간 추이)</h4>
+                        <div class="table-wrapper">
+                            <table class="finance-table">
+                                <thead id="tab1-finance-thead"></thead>
+                                <tbody id="tab1-finance-tbody"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="section-header" style="margin-top: 20px;">
+                            <h4 class="chart-title" style="margin-bottom: 0;">최신 관련 뉴스 (Serper API)</h4>
+                            <span id="tab1-news-count" class="count-badge">0건</span>
+                        </div>
+                        <ul id="tab1-news-list" class="news-list" style="margin-top: 10px;"></ul>
+                    </div>
+                </div>
+
+                <!-- 2. 전문가 AI 분석 리포트 & 후속 채팅 -->
+                <div class="card">
+                    <div class="section-header">
+                        <h3>전문가 AI 종합 분석 및 채팅</h3>
+                        <span class="legend-badge consensus-badge">수집 근거 기반 Dify 챗봇</span>
+                    </div>
+
+                    <div id="tab1-chat-log" class="chat-log chat-log-tall"></div>
+
+                    <form id="tab1-chat-form" class="chat-form">
+                        <input
+                            type="text"
+                            id="tab1-question-input"
+                            placeholder="위 분석 내용에 대해 추가 질문을 입력하세요 (예: 경쟁사 대비 리스크는?)..."
+                            autocomplete="off"
+                        >
+                        <button type="submit" id="tab1-send-btn">추가 질문</button>
+                    </form>
+                </div>
             </div>
         </section>
 
@@ -120,6 +172,7 @@
                         <h3>최적 포트폴리오 분석 결과</h3>
                         <span id="tab2-meta-badge" class="count-badge">-</span>
                     </div>
+                    <div id="tab2-source-bar" class="source-bar"></div>
                     <p id="tab2-rationale" class="rationale-box"></p>
 
                     <div class="portfolio-compare-grid" id="tab2-compare-grid"></div>
@@ -204,6 +257,7 @@
                         <h3 id="tab3-title">최신 기술지표 요약</h3>
                         <span id="tab3-date-badge" class="code-badge">-</span>
                     </div>
+                    <div id="tab3-source-bar" class="source-bar"></div>
                     <div id="tab3-latest-grid" class="snapshot-grid"></div>
                 </div>
 

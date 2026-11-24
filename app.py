@@ -78,41 +78,140 @@ def fetch():
         return jsonify({"error": "서버 내부 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."}), 500
 
 
+EXPERT_ANALYSIS_GUIDE = """당신은 사용자 개인(1인 전용)의 투자 의사결정을 돕는 냉철한 전속 퀀트·애널리스트입니다.
+아래 [정량 스코어카드]와 [수집된 종목 근거 데이터 (JSON)]에 포함된 수치와 뉴스 사실만을 근거로, 핵심만 간결하고 직설적인 마크다운 리포트를 작성하세요.
+
+[절대 준수 지침]
+1. "법규상 팔아라/사라 말할 수 없다", "본인의 판단에 맡긴다" 같은 원론적 회피나 장황한 설교를 절대 쓰지 마세요.
+2. 반드시 리포트 맨 첫 줄에 데이터에 기반한 명확한 한쪽 방향 결론을 먼저 제시하세요.
+   예) **결론: [보유/버티기 우위]** 또는 **결론: [반등 시 비중 축소 우위]** 또는 **결론: [손절/교체 검토 우위]**
+3. 근거 데이터에 없는 수치는 절대 지어내지 말고, 추정치(is_consensus: true)는 반드시 '추정치(E)'로 명시하세요.
+4. 각 항목은 불필요한 미사여구 없이 핵심 수치와 판단 이유만 2~3줄로 짧게 정리하세요.
+
+[분석 필수 목차]
+### 결론 및 핵심 전략 (단도직입 요약)
+### 1. 현재 주가 위치 & 밸류에이션 (PER · 추정PER · PBR)
+### 2. 실적 성장성 & 재무 체력 (매출 · 영업이익 · ROE · 부채비율)
+### 3. 최신 뉴스 모멘텀 & 대응 체크포인트 (구체적 재점검 기준)"""
+
+
+def _build_quant_scorecard(stock_data: dict) -> dict:
+    """수집된 종목 데이터에서 AI가 직접적 판단을 내릴 수 있도록 객관적 정량 시그널을 계산한다."""
+    snap = stock_data.get("snapshot") or {}
+    fins = [f for f in (stock_data.get("financials") or []) if not f.get("is_consensus")]
+    cons = [f for f in (stock_data.get("financials") or []) if f.get("is_consensus")]
+
+    price = snap.get("current_price")
+    high_52 = snap.get("high_52w")
+    low_52 = snap.get("low_52w")
+    per = snap.get("per")
+    cns_per = snap.get("cns_per")
+
+    drop_from_high_pct = None
+    band_pos_pct = None
+    if price and high_52 and low_52 and high_52 > low_52:
+        drop_from_high_pct = round((price - high_52) / high_52 * 100, 1)
+        band_pos_pct = round((price - low_52) / (high_52 - low_52) * 100, 1)
+
+    latest_fin = fins[-1] if fins else {}
+    latest_cons = cons[-1] if cons else {}
+
+    score = 0
+    reasons = []
+    if per and cns_per and cns_per < per:
+        score += 1
+        reasons.append(f"실적 개선으로 추정PER({cns_per}배)이 현재PER({per}배)보다 낮아짐")
+    if latest_fin.get("roe") and latest_fin["roe"] >= 15:
+        score += 1
+        reasons.append(f"최근 확정 ROE {latest_fin['roe']}%로 자본효율 우수")
+    if latest_fin.get("debt_ratio") is not None and latest_fin["debt_ratio"] < 100:
+        score += 1
+        reasons.append(f"부채비율 {latest_fin['debt_ratio']}%로 재무 건전")
+    if latest_cons.get("operating_income") and latest_fin.get("operating_income"):
+        if latest_cons["operating_income"] > latest_fin["operating_income"]:
+            score += 1
+            reasons.append("차기 영업이익 추정치(E) 추가 성장 전망")
+
+    if score >= 3:
+        stance = "펀더멘털 우위 (보유 및 추세 회복 대기 유리)"
+    elif score == 2:
+        stance = "중립 (분할 대응 및 실적 확인 필요)"
+    else:
+        stance = "보수적 접근 필요 (반등 시 비중 축소·리스크 관리 유리)"
+
+    return {
+        "quant_score": f"{score}/4",
+        "calculated_stance": stance,
+        "drop_from_52w_high_pct": drop_from_high_pct,
+        "position_in_52w_band_pct": band_pos_pct,
+        "key_signals": reasons,
+    }
+
+
 @app.route('/api/chat/analysis', methods=['POST'])
 def chat_analysis():
     payload = request.get_json(silent=True) or {}
     code = str(payload.get('code', '')).strip()
     question = str(payload.get('question', '')).strip()
     conversation_id = str(payload.get('conversation_id', '')).strip()
+    mode = str(payload.get('mode', 'init')).strip()
 
-    logger.info(f"[REQUEST] POST /api/chat/analysis code={code}")
+    logger.info(f"[REQUEST] POST /api/chat/analysis code={code}, mode={mode}")
 
     validation_error = validate_stock_code(code)
     if validation_error:
         return jsonify({"error": validation_error}), 400
 
-    if not question:
-        return jsonify({"error": "질문 내용을 입력해 주세요."}), 400
+    # 후속 채팅(mode=='chat'이고 conversation_id 존재)은 중복 수집 없이 대화 맥락 이어가기
+    if mode == 'chat' and conversation_id:
+        if not question:
+            return jsonify({"error": "질문 내용을 입력해 주세요."}), 400
 
+        direct_query = (
+            f"{question}\n\n"
+            f"[응답 지침: '매수/매도를 권유할 수 없다'는 회피나 장황한 설교 없이, "
+            f"앞서 제공된 수치와 근거를 바탕으로 데이터상 가장 유리한 한쪽 방향을 단도직입적이고 짧게 답변하세요.]"
+        )
+        try:
+            dify_res = ask_dify_chatbot(
+                bot_type="analysis",
+                query=direct_query,
+                conversation_id=conversation_id,
+            )
+            return jsonify({
+                "answer": dify_res["answer"],
+                "conversation_id": dify_res["conversation_id"],
+            }), 200
+        except RuntimeError as exc:
+            logger.error(f"[ERROR] 탭1 후속 채팅 Dify 호출 실패 (code={code}): {exc}")
+            return jsonify({"error": str(exc)}), 502
+
+    # 초기 조회(mode=='init' 또는 새 대화): 종목 데이터 수집 + 정량 스코어카드 + 전문가 프롬프트
     try:
         stock_data = collect_stock_data(code)
     except RuntimeError as exc:
         logger.error(f"[ERROR] 종목 근거 데이터 수집 실패 (code={code}): {exc}", exc_info=True)
         return jsonify({"error": str(exc)}), 400
 
+    scorecard = _build_quant_scorecard(stock_data)
+    scorecard_json = json.dumps(scorecard, ensure_ascii=False, indent=2)
     context_json = json.dumps(stock_data, ensure_ascii=False, indent=2)
+    user_request = question if question else f"{stock_data['name']}({code}) 종목에 대한 직접적인 전략 결론과 핵심 분석을 작성해 주세요."
     full_query = (
+        f"{EXPERT_ANALYSIS_GUIDE}\n\n"
+        f"[정량 스코어카드]\n"
+        f"{scorecard_json}\n\n"
         f"[수집된 종목 근거 데이터 (JSON)]\n"
         f"{context_json}\n\n"
-        f"[사용자 질문]\n"
-        f"{question}"
+        f"[요청 사항]\n"
+        f"{user_request}"
     )
 
     try:
         dify_res = ask_dify_chatbot(
             bot_type="analysis",
             query=full_query,
-            conversation_id=conversation_id,
+            conversation_id="",
         )
         return jsonify({
             "answer": dify_res["answer"],

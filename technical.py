@@ -127,4 +127,9 @@ def calculate_technical_indicators(code: str, lookback_days: int = 365, display_
         "code": clean_code,
         "latest": latest,
         "series": series,
+        "source": {
+            "provider": "FinanceDataReader (일별 종가 기반 Python 계산)",
+            "period": f"{df.index[0].strftime('%Y-%m-%d')} ~ {df.index[-1].strftime('%Y-%m-%d')}",
+            "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        },
     }

@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const globalErrorBox = document.getElementById("global-error-box");
 
     // 상태 저장소
+    let tab1CurrentCode = "";
     let tab1ConversationId = "";
     let tab3ConversationId = "";
     let tab3CurrentCode = "";
@@ -29,7 +30,15 @@ document.addEventListener("DOMContentLoaded", () => {
     function appendChatMessage(container, text, role, isLoading = false) {
         const msgEl = document.createElement("div");
         msgEl.className = `chat-msg ${role}${isLoading ? " loading-msg" : ""}`;
-        msgEl.textContent = text;
+
+        if (role === "bot" && !isLoading && typeof marked !== "undefined") {
+            msgEl.classList.add("markdown-body");
+            const rawHtml = marked.parse(text || "");
+            msgEl.innerHTML = typeof DOMPurify !== "undefined" ? DOMPurify.sanitize(rawHtml) : rawHtml;
+        } else {
+            msgEl.textContent = text;
+        }
+
         container.appendChild(msgEl);
         container.scrollTop = container.scrollHeight;
         return msgEl;
@@ -38,6 +47,19 @@ document.addEventListener("DOMContentLoaded", () => {
     function formatNumber(num, suffix = "") {
         if (num === null || num === undefined || Number.isNaN(num)) return "-";
         return `${Number(num).toLocaleString("ko-KR")}${suffix}`;
+    }
+
+    function formatKoreanAmount(num) {
+        if (num === null || num === undefined || Number.isNaN(num)) return "-";
+        const sign = num < 0 ? "-" : "";
+        const abs = Math.abs(num);
+        const jo = Math.floor(abs / 1e12);
+        const eok = Math.round((abs % 1e12) / 1e8);
+
+        if (jo > 0 && eok > 0) return `${sign}${jo.toLocaleString("ko-KR")}조 ${eok.toLocaleString("ko-KR")}억`;
+        if (jo > 0) return `${sign}${jo.toLocaleString("ko-KR")}조`;
+        if (eok > 0) return `${sign}${eok.toLocaleString("ko-KR")}억`;
+        return `${sign}${abs.toLocaleString("ko-KR")}원`;
     }
 
     // =========================================================
@@ -61,10 +83,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // =========================================================
-    // 1. 탭 1: 종목 심층분석 채팅 (Dify 챗봇①)
+    // 1. 탭 1: 종목 심층분석 & AI 채팅 (Dify 챗봇①)
     // =========================================================
+    const tab1SearchForm = document.getElementById("tab1-search-form");
     const tab1CodeInput = document.getElementById("tab1-code-input");
-    const tab1EvidenceBox = document.getElementById("tab1-evidence-box");
+    const tab1AnalyzeBtn = document.getElementById("tab1-analyze-btn");
+    const tab1Loading = document.getElementById("tab1-loading");
+    const tab1Warning = document.getElementById("tab1-warning");
+    const tab1ResultArea = document.getElementById("tab1-result-area");
+    const tab1DetailsToggle = document.getElementById("tab1-details-toggle");
+    const tab1DetailsBox = document.getElementById("tab1-details-box");
     const tab1ChatLog = document.getElementById("tab1-chat-log");
     const tab1ChatForm = document.getElementById("tab1-chat-form");
     const tab1QuestionInput = document.getElementById("tab1-question-input");
@@ -73,27 +101,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.querySelectorAll(".tab1-chip").forEach((chip) => {
         chip.addEventListener("click", () => {
-            tab1CodeInput.value = chip.getAttribute("data-code");
+            const code = chip.getAttribute("data-code");
+            tab1CodeInput.value = code;
+            analyzeStock(code);
         });
     });
 
-    tab1ResetBtn.addEventListener("click", () => {
-        tab1ConversationId = "";
-        tab1EvidenceBox.classList.add("hidden");
-        tab1ChatLog.innerHTML = "";
-        appendChatMessage(
-            tab1ChatLog,
-            "새 대화를 시작합니다. 종목코드를 입력하고 질문을 남겨주세요.",
-            "bot"
-        );
+    tab1SearchForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        analyzeStock(tab1CodeInput.value.trim());
     });
 
-    tab1ChatForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        hideGlobalError();
+    tab1DetailsToggle.addEventListener("click", () => {
+        const isHidden = tab1DetailsBox.classList.toggle("hidden");
+        tab1DetailsToggle.textContent = isHidden
+            ? "실적 표 & 최신 뉴스 펼쳐보기 ▾"
+            : "실적 표 & 최신 뉴스 접기 ▴";
+    });
 
-        const code = tab1CodeInput.value.trim();
-        const question = tab1QuestionInput.value.trim();
+    tab1ResetBtn.addEventListener("click", () => {
+        tab1CurrentCode = "";
+        tab1ConversationId = "";
+        tab1CodeInput.value = "";
+        tab1Warning.classList.add("hidden");
+        tab1ResultArea.classList.add("hidden");
+        tab1ChatLog.innerHTML = "";
+    });
+
+    async function analyzeStock(code) {
+        hideGlobalError();
+        tab1Warning.classList.add("hidden");
 
         if (!/^\d{6}$/.test(code)) {
             const msg = "종목코드는 6자리 숫자여야 합니다. (예: 000660)";
@@ -101,16 +138,231 @@ document.addEventListener("DOMContentLoaded", () => {
             showGlobalError(msg);
             return;
         }
+
+        tab1CurrentCode = code;
+        tab1ConversationId = "";
+        tab1Loading.classList.remove("hidden");
+        tab1ResultArea.classList.add("hidden");
+        tab1AnalyzeBtn.disabled = true;
+
+        try {
+            const res = await fetch("/api/chat/analysis", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code, mode: "init" }),
+            });
+            const data = await res.json();
+
+            if (data.stock_data) {
+                renderTab1Evidence(data.stock_data);
+                console.log(`[COLLECT]   종목 근거 데이터 수집 완료 (${data.stock_data.name})`);
+                tab1ResultArea.classList.remove("hidden");
+            }
+
+            if (!res.ok) {
+                throw new Error(data.error || `요청 실패 (HTTP ${res.status})`);
+            }
+
+            tab1ConversationId = data.conversation_id || "";
+            console.log(`[DIFY]      Dify 챗봇 응답 수신 완료 (bot=analysis, conversation_id=${tab1ConversationId})`);
+
+            tab1ChatLog.innerHTML = "";
+            appendChatMessage(tab1ChatLog, data.answer, "bot");
+        } catch (err) {
+            console.error(`[ERROR]     요청 중 오류 발생 (${err.message})`);
+            if (tab1ResultArea.classList.contains("hidden")) {
+                showGlobalError(err.message);
+            } else {
+                tab1ChatLog.innerHTML = "";
+                appendChatMessage(tab1ChatLog, `AI 분석 오류: ${err.message}`, "bot");
+            }
+        } finally {
+            tab1Loading.classList.add("hidden");
+            tab1AnalyzeBtn.disabled = false;
+        }
+    }
+
+    function renderTab1Evidence(data) {
+        if (Array.isArray(data.errors) && data.errors.length > 0) {
+            const messages = data.errors.map((e) => `[${e.section}] ${e.message}`).join(" | ");
+            tab1Warning.textContent = `일부 데이터 수집에 제한이 있었습니다: ${messages}`;
+            tab1Warning.classList.remove("hidden");
+        }
+
+        const snapshot = data.snapshot || {};
+        document.getElementById("tab1-stock-name").textContent = data.name || "-";
+        document.getElementById("tab1-code-badge").textContent = data.code || "000000";
+
+        const sourceBar = document.getElementById("tab1-source-bar");
+        sourceBar.innerHTML = "";
+        const src = data.sources || {};
+        const srcSpan = document.createElement("span");
+        srcSpan.textContent = `데이터 출처: ${src.market || "네이버 증권"} · ${src.news || "Serper Google News"} | 수집 시각: ${src.collected_at || "-"}`;
+        sourceBar.appendChild(srcSpan);
+        if (src.naver_url) {
+            const naverLink = document.createElement("a");
+            naverLink.href = src.naver_url;
+            naverLink.target = "_blank";
+            naverLink.rel = "noopener noreferrer";
+            naverLink.textContent = "네이버 증권 원본 ↗";
+            sourceBar.appendChild(naverLink);
+        }
+        document.getElementById("tab1-current-price").textContent = formatNumber(snapshot.current_price, "원");
+
+        const rateEl = document.getElementById("tab1-change-rate");
+        const rate = snapshot.change_rate;
+        rateEl.className = "change-rate";
+        if (rate === null || rate === undefined) {
+            rateEl.textContent = "-";
+            rateEl.classList.add("is-flat");
+        } else if (rate > 0) {
+            rateEl.textContent = `+${rate}%`;
+            rateEl.classList.add("is-rise");
+        } else if (rate < 0) {
+            rateEl.textContent = `${rate}%`;
+            rateEl.classList.add("is-fall");
+        } else {
+            rateEl.textContent = "0.00%";
+            rateEl.classList.add("is-flat");
+        }
+
+        const metrics = [
+            { label: "시가총액", value: formatKoreanAmount(snapshot.market_cap) },
+            { label: "52주 최고", value: formatNumber(snapshot.high_52w, "원") },
+            { label: "52주 최저", value: formatNumber(snapshot.low_52w, "원") },
+            { label: "외인소진율", value: formatNumber(snapshot.foreign_rate, "%") },
+            { label: "PER (실적)", value: formatNumber(snapshot.per, "배") },
+            { label: "추정 PER", value: formatNumber(snapshot.cns_per, "배") },
+            { label: "PBR", value: formatNumber(snapshot.pbr, "배") },
+            { label: "BPS (주당순자산)", value: formatNumber(snapshot.bps, "원") },
+            { label: "배당수익률", value: formatNumber(snapshot.dividend_yield, "%") },
+        ];
+
+        const grid = document.getElementById("tab1-snapshot-grid");
+        grid.innerHTML = "";
+        metrics.forEach((m) => {
+            const card = document.createElement("div");
+            card.className = "metric-item";
+            const lbl = document.createElement("div");
+            lbl.className = "metric-label";
+            lbl.textContent = m.label;
+            const val = document.createElement("div");
+            val.className = "metric-value";
+            val.textContent = m.value;
+            card.appendChild(lbl);
+            card.appendChild(val);
+            grid.appendChild(card);
+        });
+
+        // 실적 비교 표 렌더링
+        const thead = document.getElementById("tab1-finance-thead");
+        const tbody = document.getElementById("tab1-finance-tbody");
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+        const financials = data.financials || [];
+
+        if (financials.length > 0) {
+            const headRow = document.createElement("tr");
+            const firstTh = document.createElement("th");
+            firstTh.textContent = "항목";
+            headRow.appendChild(firstTh);
+
+            financials.forEach((item) => {
+                const th = document.createElement("th");
+                if (item.is_consensus) th.classList.add("consensus-col");
+                th.textContent = item.period || "-";
+                if (item.is_consensus) {
+                    const badge = document.createElement("span");
+                    badge.className = "e-tag";
+                    badge.textContent = "E";
+                    th.appendChild(badge);
+                }
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+
+            const rowsSpec = [
+                { label: "매출액", key: "revenue", formatter: formatKoreanAmount },
+                { label: "영업이익", key: "operating_income", formatter: formatKoreanAmount },
+                { label: "영업이익률", key: "operating_margin", formatter: (v) => formatNumber(v, "%") },
+                { label: "ROE", key: "roe", formatter: (v) => formatNumber(v, "%") },
+                { label: "부채비율", key: "debt_ratio", formatter: (v) => formatNumber(v, "%") },
+                { label: "유보율", key: "reserve_ratio", formatter: (v) => formatNumber(v, "%") },
+            ];
+            rowsSpec.forEach((spec) => {
+                const tr = document.createElement("tr");
+                const nameTd = document.createElement("td");
+                nameTd.textContent = spec.label;
+                tr.appendChild(nameTd);
+                financials.forEach((item) => {
+                    const td = document.createElement("td");
+                    if (item.is_consensus) td.classList.add("consensus-col");
+                    td.textContent = spec.formatter(item[spec.key]);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 뉴스 렌더링
+        const news = data.news || [];
+        const newsList = document.getElementById("tab1-news-list");
+        document.getElementById("tab1-news-count").textContent = `${news.length}건`;
+        newsList.innerHTML = "";
+
+        if (news.length === 0) {
+            const li = document.createElement("li");
+            li.className = "news-item";
+            li.textContent = "수집된 최신 뉴스가 없습니다.";
+            newsList.appendChild(li);
+        } else {
+            news.forEach((article) => {
+                const li = document.createElement("li");
+                li.className = "news-item";
+                const link = document.createElement("a");
+                link.className = "news-title";
+                link.href = article.url || "#";
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = article.title || "제목 없음";
+                li.appendChild(link);
+
+                if (article.description) {
+                    const desc = document.createElement("p");
+                    desc.className = "news-desc";
+                    desc.textContent = article.description;
+                    li.appendChild(desc);
+                }
+                if (article.published) {
+                    const meta = document.createElement("div");
+                    meta.className = "news-meta";
+                    meta.textContent = article.published;
+                    li.appendChild(meta);
+                }
+                newsList.appendChild(li);
+            });
+        }
+    }
+
+    tab1ChatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        hideGlobalError();
+
+        const question = tab1QuestionInput.value.trim();
+        if (!tab1CurrentCode) {
+            showGlobalError("먼저 상단에서 종목코드를 조회하여 분석을 시작해 주세요.");
+            return;
+        }
         if (!question) {
             showGlobalError("질문 내용을 입력해 주세요.");
             return;
         }
 
-        appendChatMessage(tab1ChatLog, `[${code}] ${question}`, "user");
+        appendChatMessage(tab1ChatLog, question, "user");
         tab1QuestionInput.value = "";
         const loadingMsg = appendChatMessage(
             tab1ChatLog,
-            "네이버 금융 지표와 최신 뉴스를 수집하여 AI가 분석 중입니다...",
+            "AI 애널리스트가 답변을 작성 중입니다...",
             "bot",
             true
         );
@@ -121,27 +373,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    code,
+                    code: tab1CurrentCode,
                     question,
+                    mode: "chat",
                     conversation_id: tab1ConversationId,
                 }),
             });
             const data = await res.json();
 
-            if (data.stock_data) {
-                const sd = data.stock_data;
-                const price = sd.snapshot ? formatNumber(sd.snapshot.current_price, "원") : "-";
-                const newsCount = (sd.news || []).length;
-                tab1EvidenceBox.textContent = `수집 근거: ${sd.name} (${sd.code}) | 현재가 ${price} | 실적 ${(sd.financials || []).length}개년 | Serper 뉴스 ${newsCount}건`;
-                tab1EvidenceBox.classList.remove("hidden");
-                console.log(`[COLLECT]   종목 근거 데이터 수집 완료 (${sd.name})`);
-            }
-
             if (!res.ok) {
                 throw new Error(data.error || `요청 실패 (HTTP ${res.status})`);
             }
 
-            tab1ConversationId = data.conversation_id || "";
+            tab1ConversationId = data.conversation_id || tab1ConversationId;
             console.log(`[DIFY]      Dify 챗봇 응답 수신 완료 (bot=analysis, conversation_id=${tab1ConversationId})`);
 
             loadingMsg.remove();
@@ -220,6 +464,9 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderRebalanceResult(data) {
         document.getElementById("tab2-meta-badge").textContent =
             `${data.trading_days}거래일 · ${data.simulations.toLocaleString("ko-KR")}회 시뮬레이션`;
+        const src2 = data.source || {};
+        document.getElementById("tab2-source-bar").textContent =
+            `데이터 출처: ${src2.provider || "FinanceDataReader"} | 분석 기간: ${src2.period || "-"} | 계산 시각: ${src2.collected_at || "-"}`;
         document.getElementById("tab2-rationale").textContent = data.rationale;
 
         const compareGrid = document.getElementById("tab2-compare-grid");
@@ -428,6 +675,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         document.getElementById("tab3-title").textContent = `${data.code} 최신 기술지표 요약`;
         document.getElementById("tab3-date-badge").textContent = `기준일: ${latest.date}`;
+        const src3 = data.source || {};
+        document.getElementById("tab3-source-bar").textContent =
+            `데이터 출처: ${src3.provider || "FinanceDataReader"} | 조회 기간: ${src3.period || "-"} | 계산 시각: ${src3.collected_at || "-"}`;
 
         const metrics = [
             { label: "종가", value: formatNumber(latest.close, "원") },
